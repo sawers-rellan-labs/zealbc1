@@ -46,8 +46,14 @@ bc2s3/dosage/<line>.dosage.tsv.gz    dosage calls (existing counts, masked)
 pipeline_info/                       timeline / report / trace
 ```
 
+## Conda envs
+Nextflow **builds** the envs from `envs/{align,call,r}.yml` (via each module's `conda` directive) — nothing needs to pre-exist. Set a persistent cache so they're built once and reused:
+```bash
+export NXF_CONDA_CACHEDIR=/share/maize/frodrig4/conda/nf_cache   # in the head job
+```
+To use an existing env instead, point a `withLabel` at its prefix (see the comment in `nextflow.config`).
+
 ## TODO
-- conda envs on `/share/maize` (`bzea_align`, `bzea_call`, `bzea_r`)
 - implement `bin/*.R` (the science)
 - point `bc2s3_counts` at the existing bzeaseq per-line counts; confirm their format
 - pre-index the reference once on `/rsstu`

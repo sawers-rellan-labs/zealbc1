@@ -1,0 +1,10 @@
+# R env for nilhmm QC_INTROGRESSION / BUILD_HD / BINHMM_DOSAGE.
+# build_hd.R shells out to bcftools, so it is included here too.
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - r-base=4.4
+  - r-data.table
+  - r-optparse
+  - bcftools=1.21

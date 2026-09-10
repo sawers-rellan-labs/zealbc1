@@ -17,4 +17,7 @@
 source ~/.bashrc
 conda activate /share/maize/frodrig4/conda/env/nextflow
 
+# Nextflow builds the per-label envs from envs/*.yml once and caches them here (edit path as needed)
+export NXF_CONDA_CACHEDIR=/share/maize/frodrig4/conda/nf_cache
+
 nextflow run main.nf -profile slurm -resume
