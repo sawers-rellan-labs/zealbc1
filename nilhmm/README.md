@@ -46,7 +46,14 @@ bc2s3/dosage/<line>.dosage.tsv.gz    dosage calls (existing counts, masked)
 pipeline_info/                       timeline / report / trace
 ```
 
-## Conda envs
+## Nextflow itself
+The `/share/maize/frodrig4/conda/env/nextflow` env was **wiped by the server cleanup** (not a valid conda env, no `nextflow` binary, only Java 8). Recreate on persistent storage with a modern JDK, once:
+```bash
+conda create -p /rsstu/users/r/rrellan/BZea/envs/nextflow -c conda-forge -c bioconda 'nextflow>=26.04' 'openjdk>=17'
+```
+Other lab envs (`assembly`, `anchorwave`, `rdt`, …) may be degraded the same way — `conda activate` them before trusting.
+
+## Conda envs (per process)
 Nextflow **builds** the envs from `envs/{align,call,r}.yml` (via each module's `conda` directive) — nothing needs to pre-exist. Set a persistent cache so they're built once and reused:
 ```bash
 export NXF_CONDA_CACHEDIR=/share/maize/frodrig4/conda/nf_cache   # in the head job
