@@ -1,0 +1,17 @@
+# scratch / traceability (holds copied external repos too)
+agent/
+
+# large / external data (not version-controlled)
+data/
+
+# Nextflow runtime
+.nextflow/
+.nextflow.log*
+work/
+timeline*.html
+report*.html
+trace*.txt
+
+# OS / editor
+.DS_Store
+*.swp
