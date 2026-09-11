@@ -1,7 +1,0 @@
-# Alignment env for nilhmm ALIGN. Built by Nextflow from the module's `conda` directive.
-channels:
-  - conda-forge
-  - bioconda
-dependencies:
-  - bwa-mem2=2.2.1
-  - samtools=1.21
