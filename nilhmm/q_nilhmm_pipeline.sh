@@ -15,12 +15,12 @@
 # Run from this directory:  sbatch q_nilhmm_pipeline.sh
 
 source ~/.bashrc
-# Nextflow env on PERSISTENT storage (the /share/.../env/nextflow one was wiped by cleanup:
-# not a valid conda env, no nextflow binary, only Java 8). Create once with Java 17+:
-#   conda create -p /rsstu/users/r/rrellan/BZea/envs/nextflow -c conda-forge -c bioconda 'nextflow>=26.04' 'openjdk>=17'
-conda activate /rsstu/users/r/rrellan/BZea/envs/nextflow
+# Requires a working nextflow env (>=26.04, JDK>=17). The one below was found broken
+# (missing conda-meta + nextflow binary; cause unknown) — recreate if needed:
+#   conda create -p /share/maize/frodrig4/conda/env/nextflow -c conda-forge -c bioconda 'nextflow>=26.04' 'openjdk>=17'
+conda activate /share/maize/frodrig4/conda/env/nextflow
 
-# cache the per-label envs on persistent storage too, or cleanup wipes them
-export NXF_CONDA_CACHEDIR=/rsstu/users/r/rrellan/BZea/envs/nf_cache
+# cache the per-label envs Nextflow builds from envs/*.yml
+export NXF_CONDA_CACHEDIR=/share/maize/frodrig4/conda/nf_cache
 
 nextflow run main.nf -profile slurm -resume

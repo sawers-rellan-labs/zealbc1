@@ -47,11 +47,12 @@ pipeline_info/                       timeline / report / trace
 ```
 
 ## Nextflow itself
-The `/share/maize/frodrig4/conda/env/nextflow` env was **wiped by the server cleanup** (not a valid conda env, no `nextflow` binary, only Java 8). Recreate on persistent storage with a modern JDK, once:
+The `/share/maize/frodrig4/conda/env/nextflow` env was found **broken** — `conda activate` fails because `conda-meta/` and the `nextflow` binary are missing (cause unknown; the filesystem is healthy). Recreate it (>=26.04, JDK>=17), once:
 ```bash
-conda create -p /rsstu/users/r/rrellan/BZea/envs/nextflow -c conda-forge -c bioconda 'nextflow>=26.04' 'openjdk>=17'
+rm -rf /share/maize/frodrig4/conda/env/nextflow
+conda create -p /share/maize/frodrig4/conda/env/nextflow -c conda-forge -c bioconda 'nextflow>=26.04' 'openjdk>=17'
 ```
-Other lab envs (`assembly`, `anchorwave`, `rdt`, …) may be degraded the same way — `conda activate` them before trusting.
+Always `conda activate` an env before trusting it here.
 
 ## Conda envs (per process)
 Nextflow **builds** the envs from `envs/{align,call,r}.yml` (via each module's `conda` directive) — nothing needs to pre-exist. Set a persistent cache so they're built once and reused:
