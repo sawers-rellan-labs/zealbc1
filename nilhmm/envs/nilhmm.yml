@@ -1,13 +1,9 @@
-# Single env for the whole nilhmm pipeline — small, compatible bioconda tools + R.
-# Built once by Nextflow (process.conda in nextflow.config) and cached.
+# R analysis env (heavy -> its own env). bcftools included because build_hd.R queries the VCFs.
 channels:
   - conda-forge
   - bioconda
 dependencies:
-  - bwa-mem2=2.2.1
-  - samtools=1.21
-  - bcftools=1.21
-  - htslib=1.21
   - r-base=4.4
   - r-data.table
   - r-optparse
+  - bcftools=1.21
