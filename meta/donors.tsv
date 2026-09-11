@@ -1,0 +1,96 @@
+donor	taxon	ears	aggregate_depth_x	present_ge1	detect_ge3	genotype_ge8	concordance_ge2ears	n_BC2S3_descendants	pin_root
+Zx.0520_P4	mexicana	1	16.313	0.953	0.706	0.107	0.0	19	no — shrink to taxon prior
+Zv.0300_P1	parviglumis	4	23.703	0.994	0.91	0.263	0.9429	42	no — shrink to taxon prior
+Zv.0080_P2	parviglumis	4	23.867	0.995	0.912	0.268	0.9442	37	no — shrink to taxon prior
+Zv.0110_P1	parviglumis	4	23.867	0.995	0.912	0.268	0.9442	20	no — shrink to taxon prior
+Zv.0210_P1	parviglumis	4	25.322	0.996	0.929	0.315	0.9543	31	no — shrink to taxon prior
+Zd.0020_P3	diploperennis	4	27.066	0.997	0.944	0.373	0.964	74	no — shrink to taxon prior
+Zv.0120_P2	parviglumis	4	27.066	0.997	0.944	0.373	0.964	38	no — shrink to taxon prior
+Zv.0390_P2	parviglumis	4	27.36	0.997	0.947	0.382	0.9654	29	no — shrink to taxon prior
+Zd.0030_P2	diploperennis	4	28.701	0.998	0.956	0.426	0.9712	105	no — shrink to taxon prior
+Zv.0040_P3	parviglumis	4	28.833	0.998	0.957	0.431	0.9717	36	no — shrink to taxon prior
+Zv.0440_P4	parviglumis	4	28.833	0.998	0.957	0.431	0.9717	36	no — shrink to taxon prior
+Zx.0430_P1	mexicana	2	29.587	0.995	0.94	0.454	0.8878	28	no — shrink to taxon prior
+Zv.0250_P3	parviglumis	2	29.587	0.995	0.94	0.454	0.8878	28	no — shrink to taxon prior
+Zl.0020_P3	luxurians	4	30.273	0.998	0.965	0.477	0.9766	78	no — shrink to taxon prior
+Zl.0030_P2	luxurians	4	30.273	0.998	0.965	0.477	0.9766	35	no — shrink to taxon prior
+Zv.0070_P4	parviglumis	5	30.656	0.999	0.97	0.49	0.9843	35	no — shrink to taxon prior
+Zv.0420_P3	parviglumis	5	31.137	0.999	0.972	0.506	0.9854	54	yes
+Zh.0020_P3	huehuetenangensis	4	31.793	0.999	0.971	0.524	0.9809	58	yes
+Zv.0290_P2	parviglumis	5	31.872	0.999	0.975	0.529	0.9869	34	yes
+Zx.0480_P2	mexicana	2	32.626	0.996	0.956	0.538	0.9088	7	yes
+Zv.0260_P2	parviglumis	5	32.669	0.999	0.978	0.553	0.9884	32	yes
+Zv.0190_P3	parviglumis	5	32.669	0.999	0.978	0.553	0.9884	30	yes
+Zv.0230_P1	parviglumis	5	33.163	0.999	0.979	0.568	0.9892	42	yes
+Zl.0050_P1	luxurians	4	33.489	0.999	0.977	0.574	0.9847	39	yes
+Zx.0400_P1	mexicana	4	33.558	0.999	0.978	0.576	0.9849	29	yes
+Zx.0560_P4	mexicana	2	34.15	0.997	0.962	0.576	0.9176	71	yes
+Zx.0080_P1	mexicana	4	33.62	0.999	0.978	0.577	0.985	33	yes
+Zx.0550_P4	mexicana	4	33.62	0.999	0.978	0.577	0.985	96	yes
+Zx.0030_P2	mexicana	4	33.699	0.999	0.978	0.58	0.9851	48	yes
+Zv.0050_P1	parviglumis	4	34.416	0.999	0.98	0.6	0.9864	21	yes
+Zl.0040_P4	luxurians	4	34.588	0.999	0.981	0.604	0.9867	66	yes
+Zx.0340_P2	mexicana	4	34.68	0.999	0.981	0.607	0.9869	38	yes
+Zx.0480_P1	mexicana	4	34.989	0.999	0.982	0.615	0.9874	17	yes
+Zv.0270_P2	parviglumis	4	34.989	0.999	0.982	0.615	0.9874	27	yes
+Zv.0160_P4	parviglumis	5	35.033	0.999	0.984	0.621	0.9918	30	yes
+Zv.0220_P3	parviglumis	5	35.079	0.999	0.985	0.623	0.9918	24	yes
+Zx.0580_P3	mexicana	4	35.824	0.999	0.984	0.637	0.9887	94	yes
+Zx.0010_P4	mexicana	4	35.836	0.999	0.984	0.637	0.9887	30	yes
+Zx.0510_P1	mexicana	4	36.451	0.999	0.985	0.653	0.9896	48	yes
+Zv.0430_P3	parviglumis	4	36.746	0.999	0.986	0.66	0.99	32	yes
+Zx.0560_P2	mexicana	4	37.352	0.999	0.987	0.675	0.9907	61	yes
+Zx.0380_P2	mexicana	4	37.85	1.0	0.988	0.686	0.9913	28	yes
+Zx.0580_P2	mexicana	5	37.602	1.0	0.989	0.687	0.9943	97	yes
+Zv.0340_P2	parviglumis	5	38.201	1.0	0.99	0.701	0.9948	20	yes
+Zx.0440_P2	mexicana	4	38.916	1.0	0.989	0.71	0.9924	42	yes
+Zx.0570_P2	mexicana	5	38.958	1.0	0.991	0.719	0.9953	87	yes
+Zv.0060_P4	parviglumis	5	39.175	1.0	0.992	0.723	0.9955	22	yes
+Zx.0500_P2	mexicana	5	40.103	1.0	0.993	0.743	0.996	45	yes
+Zx.0370_P2	mexicana	5	40.103	1.0	0.993	0.743	0.996	39	yes
+Zx.0140_P2	mexicana	5	41.564	1.0	0.994	0.772	0.9968	35	yes
+Zx.0160_P2	mexicana	5	41.603	1.0	0.994	0.772	0.9968	43	yes
+Zx.0440_P1	mexicana	5	41.603	1.0	0.994	0.772	0.9968	43	yes
+Zx.0220_P2	mexicana	5	41.914	1.0	0.994	0.778	0.9969	44	yes
+Zx.0550_P1	mexicana	5	42.064	1.0	0.994	0.781	0.997	49	yes
+Zv.0280_P3	parviglumis	3	45.9	1.0	0.993	0.817	0.9916	27	yes
+Zx.0490_P4	mexicana	3	45.9	1.0	0.993	0.817	0.9916	23	yes
+Zx.0540_P3	mexicana	5	44.441	1.0	0.996	0.821	0.9978	95	yes
+Zx.0020_P3	mexicana	5	44.491	1.0	0.996	0.821	0.9979	34	yes
+Zx.0090_P2	mexicana	5	44.587	1.0	0.996	0.823	0.9979	41	yes
+Zv.0340_P1	parviglumis	5	44.89	1.0	0.996	0.827	0.998	32	yes
+Zx.0350_P1	mexicana	3	47.42	1.0	0.994	0.836	0.9927	36	yes
+Zv.0480_P3	parviglumis	5	46.2	1.0	0.997	0.846	0.9983	53	yes
+Zv.0150_P4	parviglumis	3	48.234	1.0	0.995	0.846	0.9932	29	yes
+Zx.0190_P2	mexicana	5	46.437	1.0	0.997	0.849	0.9984	34	yes
+Zx.0450_P1	mexicana	3	48.94	1.0	0.995	0.854	0.9937	28	yes
+Zd.0040_P1	diploperennis	3	49.385	1.0	0.995	0.858	0.9939	75	yes
+Zl.0010_P1	luxurians	3	49.385	1.0	0.995	0.858	0.9939	27	yes
+Zx.0100_P4	mexicana	3	49.998	1.0	0.996	0.865	0.9942	32	yes
+Zx.0150_P2	mexicana	3	49.998	1.0	0.996	0.865	0.9942	40	yes
+Zx.0130_P1	mexicana	3	50.611	1.0	0.996	0.871	0.9945	24	yes
+Zx.0040_P1	mexicana	3	51.225	1.0	0.996	0.876	0.9948	12	yes
+Zx.0410_P2	mexicana	3	51.225	1.0	0.996	0.876	0.9948	36	yes
+Zv.0490_P4	parviglumis	4	49.836	1.0	0.997	0.878	0.9979	52	yes
+Zx.0390_P2	mexicana	3	52.088	1.0	0.996	0.884	0.9952	13	yes
+Zv.0240_P2	parviglumis	3	53.608	1.0	0.997	0.896	0.9958	29	yes
+Zx.0470_P2	mexicana	3	53.608	1.0	0.997	0.896	0.9958	30	yes
+Zv.0250_P2	parviglumis	4	52.67	1.0	0.998	0.904	0.9985	28	yes
+Zv.0410_P2	parviglumis	3	55.942	1.0	0.997	0.913	0.9966	37	yes
+Zv.0030_P1	parviglumis	5	53.692	1.0	0.999	0.921	0.9994	29	yes
+Zh.0030_P4	huehuetenangensis	5	54.258	1.0	0.999	0.925	0.9994	55	yes
+Zv.0010_P3	parviglumis	5	54.258	1.0	0.999	0.925	0.9994	29	yes
+Zv.0310_P3	parviglumis	3	58.187	1.0	0.998	0.926	0.9971	31	yes
+Zv.0140_P3	parviglumis	3	58.187	1.0	0.998	0.926	0.9971	28	yes
+Zv.0200_P3	parviglumis	3	59.309	1.0	0.998	0.932	0.9974	27	yes
+Zv.0370_P3	parviglumis	3	59.309	1.0	0.998	0.932	0.9974	36	yes
+Zx.0520_P2	mexicana	4	56.953	1.0	0.999	0.933	0.9991	30	yes
+Zd.0020_P2	diploperennis	5	57.717	1.0	0.999	0.945	0.9996	65	yes
+Zd.0010_P2	diploperennis	5	57.717	1.0	0.999	0.945	0.9996	87	yes
+Zd.0010_P3	diploperennis	4	61.431	1.0	0.999	0.954	0.9994	86	yes
+Zv.0470_P2	parviglumis	5	61.05	1.0	1.0	0.96	0.9998	50	yes
+Zv.0480_P2	parviglumis	5	61.081	1.0	1.0	0.96	0.9998	50	yes
+Zx.0360_P2	mexicana	5	65.338	1.0	1.0	0.973	0.9999	28	yes
+Zx.0430_P3	mexicana	4	68.974	1.0	1.0	0.975	0.9997	21	yes
+Zv.0280_P1	parviglumis	5	74.496	1.0	1.0	0.988	0.9999	46	yes
+Zv.0100_P3	parviglumis	5	77.385	1.0	1.0	0.991	1.0	32	yes
