@@ -1,9 +1,10 @@
 # Alignment + calling env (small, compatible tools share one env).
+# minibwa: lh3's BWA successor, ~2-3x faster than bwa-mem2, paired-end; on bioconda.
 channels:
   - conda-forge
   - bioconda
 dependencies:
-  - bwa-mem2=2.2.1
+  - minibwa=0.7
   - samtools=1.21
   - bcftools=1.21
   - htslib=1.21

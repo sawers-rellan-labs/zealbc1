@@ -14,9 +14,10 @@ process ALIGN {
     tuple val(sample), path("${sample}.bam"), path("${sample}.bam.bai")
 
     script:
-    // reference is read by absolute path (pre-indexed on /rsstu) rather than staged.
+    // reference read by absolute path (rather than staged); must be minibwa-indexed once:
+    //   minibwa index ${params.reference}   -> <ref>.l2b, <ref>.mbw   (18N RAM; add -l for low-mem)
     """
-    bwa-mem2 mem -t ${task.cpus} ${params.reference} ${r1} ${r2} \
+    minibwa map -t ${task.cpus} ${params.reference} ${r1} ${r2} \
       | samtools sort -@ 2 -o aln.bam
     samtools view -b -F 0x904 -q ${params.mapq} aln.bam > ${sample}.bam
     samtools index ${sample}.bam

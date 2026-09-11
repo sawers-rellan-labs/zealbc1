@@ -55,7 +55,7 @@ conda create -p /share/maize/frodrig4/conda/env/nextflow -c conda-forge -c bioco
 Always `conda activate` an env before trusting it here.
 
 ## Conda envs
-Two envs (Nextflow builds them from yml — nothing needs to pre-exist): `envs/assembly.yml` (bwa-mem2, samtools, bcftools, htslib) for `align`/`call`, and `envs/nilhmm.yml` (R + data.table + bcftools) for `rstats`. Small compatible tools share the first; R (heavy) gets its own. Set a persistent cache so they're built once and reused:
+Two envs (Nextflow builds them from yml — nothing needs to pre-exist): `envs/assembly.yml` (minibwa, samtools, bcftools, htslib) for `align`/`call`, and `envs/nilhmm.yml` (R + data.table + bcftools) for `rstats`. Small compatible tools share the first; R (heavy) gets its own. Set a persistent cache so they're built once and reused:
 ```bash
 export NXF_CONDA_CACHEDIR=/share/maize/frodrig4/conda/nf_cache   # in the head job
 ```
