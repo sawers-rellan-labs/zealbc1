@@ -11,7 +11,7 @@
 #SBATCH --error=%x_%j.err
 #
 # nilhmm dry run — validate the workflow and DRAW THE DAG. No tasks are executed
-# (-preview resolves the channel graph only). Produces a mermaid + html DAG.
+# (-preview resolves the channel graph only). Produces an SVG DAG (needs graphviz `dot`).
 # Run from ZEAL/code/nilhmm:   sbatch q_nilhmm_dryrun.sh
 #
 # WHY a separate launch dir (the nilhifi lesson): a `-preview -with-dag` run creates a
@@ -29,6 +29,13 @@ mkdir -p "$DAG_DIR"
 
 source ~/.bashrc
 conda activate /share/maize/frodrig4/conda/env/nextflow
+
+# SVG (and png/pdf) DAGs are rendered by Graphviz `dot`; mermaid/html are native to Nextflow.
+command -v dot >/dev/null 2>&1 || {
+  echo "ERROR: graphviz 'dot' not found — needed for the .svg DAG. Add it once:"
+  echo "  conda install -p /share/maize/frodrig4/conda/env/nextflow -c conda-forge graphviz"
+  exit 1
+}
 
 echo "=== nilhmm dry run (DAG validation) ==="
 echo "Started:  $(date)"
@@ -52,7 +59,7 @@ cd "$DAG_DIR"                               # isolate .nextflow/history here
 nextflow run "$PROJ/main.nf" \
   -profile slurm \
   -preview \
-  -with-dag "$DAG_DIR/dag_${STAMP}.mmd" \
+  -with-dag "$DAG_DIR/dag_${STAMP}.svg" \
   2>&1
 
 echo ""
@@ -61,5 +68,5 @@ for proc in INDEX_REF ALIGN GENOTYPE QC_INTROGRESSION BUILD_HD BINHMM_DOSAGE; do
   echo "  $proc"
 done
 echo ""
-echo "DAG written: $DAG_DIR/dag_${STAMP}.mmd"
+echo "DAG written: $DAG_DIR/dag_${STAMP}.svg"
 echo "Finished: $(date)"
