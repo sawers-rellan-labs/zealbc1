@@ -5,7 +5,8 @@
 #SBATCH --qos=short                     # debug queue, 2h max wall
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --mem=4G
+#SBATCH --cpus-per-task=8            # local executor parallelizes the ~1250 touch-tasks across these
+#SBATCH --mem=8G
 #SBATCH --time=00:15:00
 #SBATCH --output=%x_%j.out
 #SBATCH --error=%x_%j.err
