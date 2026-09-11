@@ -16,6 +16,10 @@ B=/rsstu/users/r/rrellan/BZea
 Z="$B/ZEAL"
 mkdir -p "$Z"/{raw,reference,meta,work,envs,results}
 
+# The /rsstu ACL strips the exec bit, so git otherwise shows every script as "modified" after a pull.
+# Ignore filemode for this checkout (scripts are interpreter-invoked, not run via +x anyway).
+git config core.fileMode false 2>/dev/null || true
+
 # --- raw BC1 FASTQ (symlink) --------------------------------------------------
 ln -sfn ../../BC1_dna_raw "$Z/raw/BC1_dna_raw"
 

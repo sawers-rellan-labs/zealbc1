@@ -19,26 +19,21 @@ Write plans, design notes, and session handovers to the `agent/` folder for trac
 working context and reference clones, not code to execute. Move code you intend to run out of
 `agent/` into the pipeline tree.
 
-## Pipeline debugging loop
+## Hazel debug loop
 
-Never run full-scale before a single unit has gone end to end. Climb the gate ladder; advance only
-when the current gate passes. Full detail + benchmarking in `nilhmm/docs/testing_benchmarking.md`.
+Never run full-scale before a single unit has gone end to end. The full loop — branch model, how code
+moves (git only), the two filesystem facts (`core.fileMode false`, interpreter-invoked scripts),
+login-node policy (`short` QOS for everything that computes), the gate ladder, and the inner fix loop —
+is in **`docs/hazel_debug_loop.md`**. Benchmarking detail is in `nilhmm/docs/testing_benchmarking.md`.
 
-1. **Gate 0 · `-stub-run`** — every module has a `stub:` block that `touch`es its outputs;
-   `nextflow run main.nf -stub-run -profile local` runs the whole DAG in seconds, proving
-   wiring / channel joins / filenames. Run after any wiring change.
-2. **Gate 1 · tiny real subset** — real tools, toy inputs (~1M read pairs from one pool; a few
-   `SAMPLE` ids for the dosage half). Catches argument/format bugs stubs can't.
-3. **Gate 2 · one full pool (BC1_1B, 12 plants)** — the real benchmark run: measure
-   cpu/ram/time/disk per module + per-column balance. **Nothing full-scale runs before this passes.**
-4. **Gate 3 · full run** — only once Gate 2's measured numbers justify the allocation.
+Quick reference — climb only when the current gate passes:
+1. **Gate 0 · `-stub-run`** (short-QOS job): module `stub:` blocks touch outputs → whole DAG in seconds.
+2. **Gate 1 · tiny real subset** (short-QOS): real tools, toy inputs.
+3. **Gate 2 · one full pool (BC1_1B)**: the real benchmark. Nothing full-scale before this.
+4. **Gate 3 · full run**.
 
-**Inner fix loop when a task fails:** read `work/<hash>/.command.{err,out,trace}` → fix the
-**module** `.nf` (not `main.nf`, which rehashes every task) → `-resume` **with an explicit session id**
-(a bare `-resume` may attach to an empty preview/stub session) → re-check.
-
-**After Gate 2:** read the `trace` + `seff`, tighten each module's `cpus`/`memory`/`time` to peak +
-~30% headroom, and record measured-vs-allocated in `nilhmm/docs/resource_estimates.md`.
+Fix loop: read `work/<hash>/.command.{err,out,trace}` → fix the **module** (not `main.nf`) →
+push/pull → `-resume <session-id>`.
 
 ## Where to find logs (Slurm)
 
