@@ -20,7 +20,12 @@ source ~/.bashrc
 #   conda create -p /share/maize/frodrig4/conda/env/nextflow -c conda-forge -c bioconda 'nextflow>=26.04' 'openjdk>=17'
 conda activate /share/maize/frodrig4/conda/env/nextflow
 
-# cache the per-label envs Nextflow builds from envs/*.yml
-export NXF_CONDA_CACHEDIR=/share/maize/frodrig4/conda/nf_cache
+# submit from ZEAL/code/nilhmm; SLURM_SUBMIT_DIR is the reliable anchor ($0 is a spool copy).
+SUBMIT_DIR="${SLURM_SUBMIT_DIR:-$PWD}"
+cd "$SUBMIT_DIR"
+
+# cache the per-label envs Nextflow builds from envs/*.yml on the PERSISTENT partition
+# (ZEAL/envs; /share gets wiped). code/nilhmm -> ../../envs = ZEAL/envs.
+export NXF_CONDA_CACHEDIR="$(cd "$SUBMIT_DIR/../.." && pwd)/envs"
 
 nextflow run main.nf -profile slurm -resume
