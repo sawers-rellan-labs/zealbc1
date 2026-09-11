@@ -1,8 +1,16 @@
+---
+name: hazel-debug-loop
+description: Run and debug the nilhmm/PHG Nextflow pipeline on hazel from the laptop. Use whenever
+  iterating on, submitting, or troubleshooting the pipeline on the cluster — covers the debug-branch
+  model, git-only transfer, the two filesystem facts (core.fileMode false + interpreter-invoked
+  scripts), login-node policy (short QOS for all compute), the gate ladder, and the inner fix loop.
+---
+
 # Hazel debug loop
 
-How code is written on the laptop, moved to hazel, and iterated until a pipeline step works —
-with the specifics that make it actually work on this cluster + filesystem. For the gate ladder
-detail and resource benchmarking, see `nilhmm/docs/testing_benchmarking.md`.
+How code is written on the laptop, moved to hazel, and iterated until a pipeline step works — with the
+specifics that make it work on this cluster + filesystem. Gate-ladder detail and resource benchmarking
+are in `nilhmm/docs/testing_benchmarking.md`.
 
 ## Branch model
 - All debugging happens on the **`debug` branch**. `main` stays clean.

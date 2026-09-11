@@ -24,7 +24,8 @@ working context and reference clones, not code to execute. Move code you intend 
 Never run full-scale before a single unit has gone end to end. The full loop — branch model, how code
 moves (git only), the two filesystem facts (`core.fileMode false`, interpreter-invoked scripts),
 login-node policy (`short` QOS for everything that computes), the gate ladder, and the inner fix loop —
-is in **`docs/hazel_debug_loop.md`**. Benchmarking detail is in `nilhmm/docs/testing_benchmarking.md`.
+is the **`hazel-debug-loop` skill** (`.claude/skills/hazel-debug-loop/`); invoke it when iterating on
+hazel. Benchmarking detail is in `nilhmm/docs/testing_benchmarking.md`.
 
 Quick reference — climb only when the current gate passes:
 1. **Gate 0 · `-stub-run`** (short-QOS job): module `stub:` blocks touch outputs → whole DAG in seconds.
