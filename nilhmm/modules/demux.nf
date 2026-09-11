@@ -1,7 +1,7 @@
 process DEMUX {
     tag    "${pool}"
     label  'align'          // cutadapt lives in envs/assembly.yml
-    publishDir "${params.outdir}/demux/${pool}", mode: 'copy', pattern: '*.{json,unknown_R*.fq.gz}'
+    publishDir { "${params.outdir}/demux/${pool}" }, mode: 'copy', pattern: '*.{json,unknown_R*.fq.gz}'
 
     cpus   8
     memory '8 GB'
