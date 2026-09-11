@@ -26,8 +26,10 @@ ln -sfn ../../bzeaseq/50K/results/joint/bzea_50K_cohort_ref.vcf.gz         "$Z/r
 ln -sfn ../../bzeaseq/50K/results/joint/bzea_50K_cohort_ref.vcf.gz.csi     "$Z/reference/cohort_ref.vcf.gz.csi"
 ln -sfn ../../bzeaseq/50K/results/joint/bzea_50K_cohort_ref_metadata.csv   "$Z/reference/cohort_ref_metadata.csv"
 ln -sfn ../../bzeaseq/50K/allelic_counts50K.tsv             "$Z/reference/allelic_counts50K.tsv"
-ln -sfn ../../ref/B73/Zm-B73-REFERENCE-NAM-5.0.fa           "$Z/reference/B73.fa"
-# INDEX_REF writes minibwa .l2b/.mbw + .fai next to $Z/reference/B73.fa (stays in ZEAL, not the shared ref dir)
+ln -sfn ../../ref/Zm-B73-REFERENCE-NAM-5.0.fa              "$Z/reference/B73.fa"
+ln -sfn ../../ref/Zm-B73-REFERENCE-NAM-5.0.fa.fai          "$Z/reference/B73.fa.fai"   # already exists in ref/
+# INDEX_REF writes the minibwa .l2b/.mbw next to $Z/reference/B73.fa (stays in ZEAL, not the shared ref dir);
+# the .fai is symlinked above so faidx is skipped.
 
 echo "ZEAL tree ready at $Z"; ls -l "$Z"
 echo "--- reference/ ---"; ls -l "$Z/reference"
