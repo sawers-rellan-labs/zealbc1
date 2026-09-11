@@ -1,4 +1,11 @@
 # R analysis env (heavy -> its own env). bcftools included because build_hd.R queries the VCFs.
+# The nilhmm package is installed FROM GITHUB after the env is created (not expressible in yml):
+#   conda activate <this env>
+#   Rscript -e 'devtools::install_github("sawers-rellan-labs/nilhmm")'
+# nilhmm has compiled C++ (LinkingTo Rcpp, RcppParallel; SystemRequirements GNU make), so this env
+# ships a compiler + make + the Rcpp deps (avoids a CRAN fetch at build time on a network-less node).
+# Because the GitHub package isn't in this yml, BUILD THIS ENV ONCE at a persistent prefix and point
+# the rstats label at it, rather than letting Nextflow rebuild from the yml (a rebuild drops nilhmm).
 channels:
   - conda-forge
   - bioconda
@@ -6,4 +13,9 @@ dependencies:
   - r-base=4.4
   - r-data.table
   - r-optparse
+  - r-devtools
+  - r-rcpp
+  - r-rcppparallel
+  - compilers
+  - make
   - bcftools=1.21
