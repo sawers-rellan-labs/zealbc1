@@ -34,9 +34,10 @@ are in `nilhmm/docs/testing_benchmarking.md`.
   between calls, so every command self-contains its `cd` and `conda activate`.
 - **Only trivial commands run over ssh directly**: `git pull`, `squeue`, `scancel`, `cat`/`tail` logs,
   `seff`, `sacct`, `ls`.
-- **Everything that computes goes through Slurm on the `short` QOS** (hazel's debug queue — there is no
-  named debug partition). Even Gate 0 stub-run is a tiny `sbatch --qos=short` job. Never run nextflow
-  (or any heavy process) on the login node.
+- **Everything that computes goes through Slurm on the debug queue** = `--partition=compute_partners
+  --qos=short` (2h max wall; the `short` QOS is not allowed on the default `compute` partition, which
+  only permits long/normal). Even Gate 0 stub-run is a tiny job there. Never run nextflow (or any
+  heavy process) on the login node.
 
 ## The gate ladder (climb only when the current passes)
 1. **Gate 0 · `-stub-run`** (short-QOS): every module's `stub:` touches its outputs → the whole DAG

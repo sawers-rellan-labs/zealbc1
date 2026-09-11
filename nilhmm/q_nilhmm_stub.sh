@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --job-name=nilhmm_stub
 #SBATCH --account=maize_cpu
-#SBATCH --partition=compute
-#SBATCH --qos=short
+#SBATCH --partition=compute_partners    # the `short` QOS lives here (compute allows only long/normal)
+#SBATCH --qos=short                     # debug queue, 2h max wall
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --mem=4G
