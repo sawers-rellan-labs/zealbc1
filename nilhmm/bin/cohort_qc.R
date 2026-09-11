@@ -4,7 +4,7 @@
 # Per taxon (and once for all taxa) build a PCA of:
 #   BC1 individuals            open circles   (expected scatter: Mendelian sampling + missingness)
 #   synthetic DH-H_d per donor filled circles (complete/synthetic; should cluster near teosinte pole)
-#   teosinte reference (1 per taxon)  triangle (TIL11 parv, TIL25 mex, least-missing for the rest)
+#   teosinte reference (1 per taxon)  triangle (TIL11 parv, TIL25 mex, RIL003 lux, RIMH001 huehue, Ame2317 diplo)
 #   B73                        x              (recurrent pole; the REAL B73 genotype from the panel)
 # Per-group call-rate filter -> mean-impute -> standardize -> PCA. Flags each BC1 whose nearest
 # DH-H_d anchor is not its recorded donor.
@@ -44,7 +44,7 @@ rmeta <- fread(ref_meta_f)
 Gr <- read_vcf_dosage(ref_vcf)                     # all panel samples; we subset to anchors + B73
 b73_s <- intersect(rmeta[is_B73 == TRUE, sample], colnames(Gr))
 
-# ONE reference anchor per taxon (documented in agent/reference_anchors.md). Taxon is FORCED from
+# ONE reference anchor per taxon (documented in nilhmm/docs/reference_anchors.md). Taxon is FORCED from
 # this map: the panel metadata mislabels the TIL lines (mexicana TILs shown as Zv) and the
 # diploperennis Gigi/Momo accession (PI 462368) is not in the panel. TIL11/RIL003/RIMH001 are the
 # real PanAnd references present; TIL25 (mex) and Ame2317 (diplo, least-heterozygous) are stand-ins.
