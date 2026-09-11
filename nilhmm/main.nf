@@ -5,6 +5,7 @@ nextflow.enable.dsl = 2
 // ALREADY-EXISTING BC2S3 counts to exclude the non-informative sites per F1, then binHMM.
 // BC2S3 is already aligned and counted (rsstu .../BZea/bzeaseq) — Branch B does NOT map or count.
 
+include { INDEX_REF        } from './modules/index_ref'
 include { ALIGN            } from './modules/align'
 include { GENOTYPE         } from './modules/genotype'
 include { QC_INTROGRESSION } from './modules/qc_introgression'
@@ -18,11 +19,14 @@ workflow {
     donor_of = bc1_sheet.collectEntries { r -> [(r.sample): r.donor] }
     taxon_of = bc1_sheet.collectEntries { r -> [(r.sample): r.taxon] }
 
+    // index the reference once (minibwa + faidx); ALIGN gates on it. .first() = broadcast value.
+    ref_ready = INDEX_REF(Channel.value(params.reference)).ready.first()
+
     bc1_reads = Channel.fromPath(params.bc1_samplesheet)
         .splitCsv(header: true)
         .map { r -> tuple(r.sample, file(r.fastq_1), file(r.fastq_2)) }
 
-    ALIGN(bc1_reads)
+    ALIGN(bc1_reads, ref_ready)
     GENOTYPE(ALIGN.out)
 
     qc_in = GENOTYPE.out.map { sample, vcf, csi ->

@@ -7,6 +7,7 @@
 main.nf                 wiring only (imports + workflow)
 nextflow.config         profiles (slurm/local), conda env per label, reports
 modules/
+  index_ref.nf          INDEX_REF (8/64GB/2h)  — minibwa index + faidx (once, gates ALIGN)
   align.nf              ALIGN   (8/24GB/6h)   — BC1 only
   genotype.nf           GENOTYPE(4/16GB/4h)   — bcftools mpileup -T sites (BC1)
   qc_introgression.nf   QC_INTROGRESSION (2/16/2h) — contamination flags per BC1 plant
@@ -31,7 +32,7 @@ Branch B (existing BC2S3 counts -> dosage)
 ## Inputs (`nextflow.config`)
 - `bc1_samplesheet` — `sample,donor,taxon,fastq_1,fastq_2` (384; donor = `accession_P<P1>`)
 - `bc2s3_counts`    — `sample,donor,counts` (existing per-line allelic counts under `.../bzeaseq`)
-- `reference` (B73 v5, pre-indexed) + `sites` (bzeaseq biallelic, bgzip+tabix) — Branch A only
+- `reference` (B73 v5; INDEX_REF builds minibwa index + faidx) + `sites` (bzeaseq biallelic, bgzip+tabix) — Branch A only
 
 ## Run
 ```bash
@@ -64,4 +65,4 @@ To use an existing env instead, point a `withLabel` at its prefix (see the comme
 ## TODO
 - implement `bin/*.R` (the science)
 - point `bc2s3_counts` at the existing bzeaseq per-line counts; confirm their format
-- pre-index the reference once on `/rsstu`
+- ensure the reference dir on `/rsstu` is writable (INDEX_REF writes .l2b/.mbw/.fai next to it)

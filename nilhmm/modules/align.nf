@@ -9,6 +9,7 @@ process ALIGN {
 
     input:
     tuple val(sample), path(r1), path(r2)
+    val ready                          // gate: reference is minibwa-indexed + faidx'd
 
     output:
     tuple val(sample), path("${sample}.bam"), path("${sample}.bam.bai")
