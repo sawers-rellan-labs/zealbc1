@@ -53,7 +53,6 @@ nextflow run "$PROJ/main.nf" \
   -profile slurm \
   -preview \
   -with-dag "$DAG_DIR/dag_${STAMP}.mmd" \
-  -with-dag "$DAG_DIR/dag_${STAMP}.html" \
   2>&1
 
 echo ""
@@ -62,5 +61,5 @@ for proc in INDEX_REF ALIGN GENOTYPE QC_INTROGRESSION BUILD_HD BINHMM_DOSAGE; do
   echo "  $proc"
 done
 echo ""
-echo "DAG written: $DAG_DIR/dag_${STAMP}.{mmd,html}"
+echo "DAG written: $DAG_DIR/dag_${STAMP}.mmd"
 echo "Finished: $(date)"
