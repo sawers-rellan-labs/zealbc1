@@ -30,10 +30,6 @@ min_cr <- as.numeric(getopt("--min-callrate", "0.3"))
 out_dir <- getopt("--out-dir", "."); dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
 stopifnot(!is.null(ref_vcf), !is.null(ref_meta_f), !is.null(bc1_vcf), !is.null(bc1_meta_f), !is.null(masks_dir))
 
-PREFIX_TAXON <- c(Zx = "mexicana", Zv = "parviglumis", Zd = "diploperennis",
-                  Zl = "luxurians", Zh = "huehuetenangensis", Zn = "nicaraguensis",
-                  Zm = "maize", Zp = "perennis")
-
 ## ---- read a VCF as a dosage matrix (markers x samples; GT '1'-count, ./.=NA) ----
 read_vcf_dosage <- function(vcf) {
   sl  <- system2("bcftools", c("query", "-l", shQuote(vcf)), stdout = TRUE)  # sample order = -f order
@@ -48,24 +44,17 @@ rmeta <- fread(ref_meta_f)
 Gr <- read_vcf_dosage(ref_vcf)                     # all panel samples; we subset to anchors + B73
 b73_s <- intersect(rmeta[is_B73 == TRUE, sample], colnames(Gr))
 
-# ONE reference anchor per taxon:
-#   parviglumis -> TIL11 ; mexicana -> TIL25  (TIL18 is NOT in the panel; TIL25 is present but
-#   metadata-mislabeled Zv, so its taxon is forced here). Other taxa -> the reference sample with
-#   the least missing data. Edit fixed_anchor to change the mex/parv choice.
-fixed_anchor <- c(parviglumis = "TIL11", mexicana = "TIL25")
-ref_all <- rmeta[is_reference == TRUE, .(sample, taxon = unname(PREFIX_TAXON[maizegdb_prefix]))]
-ref_all <- ref_all[sample %in% colnames(Gr)]
-pick_anchor <- function(tx) {
-  if (tx %in% names(fixed_anchor) && fixed_anchor[[tx]] %in% colnames(Gr)) return(fixed_anchor[[tx]])
-  cand <- ref_all[taxon == tx, sample]
-  if (!length(cand)) { message("cohort_qc: no reference anchor for ", tx); return(NA_character_) }
-  cr <- colMeans(!is.na(Gr[, cand, drop = FALSE])); cand[which.max(cr)]   # least missing
-}
-anchor_tax <- unique(c(names(fixed_anchor), na.omit(ref_all$taxon)))
-ref_anchor <- setNames(vapply(anchor_tax, pick_anchor, ""), anchor_tax)
-ref_anchor <- ref_anchor[!is.na(ref_anchor) & nzchar(ref_anchor)]
-ref_s <- unname(ref_anchor)                        # one reference sample per taxon
-rtax  <- setNames(names(ref_anchor), ref_anchor)   # sample -> taxon (forced from the anchor map)
+# ONE reference anchor per taxon (documented in agent/reference_anchors.md). Taxon is FORCED from
+# this map: the panel metadata mislabels the TIL lines (mexicana TILs shown as Zv) and the
+# diploperennis Gigi/Momo accession (PI 462368) is not in the panel. TIL11/RIL003/RIMH001 are the
+# real PanAnd references present; TIL25 (mex) and Ame2317 (diplo, least-heterozygous) are stand-ins.
+fixed_anchor <- c(parviglumis = "TIL11", mexicana = "TIL25",
+                  luxurians = "RIL003", huehuetenangensis = "RIMH001",
+                  diploperennis = "Ame2317")
+miss <- setdiff(unname(fixed_anchor), colnames(Gr))
+if (length(miss)) stop("cohort_qc: reference anchor(s) not in the panel VCF: ", paste(miss, collapse = ", "))
+ref_s <- unname(fixed_anchor)                      # one reference sample per taxon
+rtax  <- setNames(names(fixed_anchor), fixed_anchor)  # sample -> taxon (forced)
 
 ## ---- BC1 ----------------------------------------------------------------
 bm <- fread(bc1_meta_f)
