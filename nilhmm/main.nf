@@ -2,12 +2,13 @@
 nextflow.enable.dsl = 2
 
 // nilhmm Phase 1, two halves:
-//   (1) BUILD THE MASK — align+genotype the 384 BC1 plants, and per F1 donor collect the sites where
-//       a BC1 plant is het (the informative sites for that F1): <donor>.hd.tsv.gz.
-//   (2) CALL DOSAGE — take the ALREADY-EXISTING merged BC2S3 allelic counts, drop the sites not in
-//       each line's F1 mask, and run nilhmm binhmm. BC2S3 is already aligned+counted; half 2 does
-//       NOT map or count.
+//   (1) BUILD THE MASK — demux the 32 pooled BC1 libraries into per-plant reads, align + genotype,
+//       and per F1 donor collect the sites where a BC1 plant is het: <donor>.hd.tsv.gz.
+//   (2) CALL DOSAGE — apply the masks to the ALREADY-EXISTING merged BC2S3 counts and run binhmm.
+//       BC2S3 is already aligned + counted; half 2 does NOT map or count.
 
+include { DEMUX            } from './modules/demux'
+include { DEMUX_QC         } from './modules/demux_qc'
 include { INDEX_REF        } from './modules/index_ref'
 include { ALIGN            } from './modules/align'
 include { GENOTYPE         } from './modules/genotype'
@@ -18,18 +19,35 @@ include { BINHMM_DOSAGE    } from './modules/binhmm_dosage'     // mask -> exclu
 workflow {
 
     // ---- (1) BUILD THE MASK from the BC1 plants -------------------------
-    def bc1_sheet = file(params.bc1_samplesheet).splitCsv(header: true)
-    donor_of = bc1_sheet.collectEntries { r -> [(r.sample): r.donor] }
-    taxon_of = bc1_sheet.collectEntries { r -> [(r.sample): r.taxon] }
+    // sample -> donor / taxon from the well map (Sample_Id is the key through the whole pipeline).
+    def well = file(params.bc1_well_map).splitCsv(header: true)
+    donor_of = well.collectEntries { r -> [(r.Sample_Id): r.donor] }
+    taxon_of = well.collectEntries { r -> [(r.Sample_Id): r.taxon] }
+
+    bc_fasta = file(params.bc_fasta)
+    well_map = file(params.bc1_well_map)
 
     // index the reference once (minibwa + faidx); ALIGN gates on it. .first() = broadcast value.
     ref_ready = INDEX_REF(Channel.value(params.reference)).ready.first()
 
-    bc1_reads = Channel.fromPath(params.bc1_samplesheet)
+    // per-pool inputs: (pool, [R1 lanes], [R2 lanes])
+    libs = Channel.fromPath(params.bc1_libraries)
         .splitCsv(header: true)
-        .map { r -> tuple(r.sample, file(r.fastq_1), file(r.fastq_2)) }
+        .map { r -> tuple(r.pool,
+                          file("${params.bc1_rawdata}/${r.raw_dir}/*_1.fq.gz"),
+                          file("${params.bc1_rawdata}/${r.raw_dir}/*_2.fq.gz")) }
 
-    ALIGN(bc1_reads, ref_ready)
+    DEMUX(libs, bc_fasta, well_map)
+
+    // flatten each pool's per-plant FASTQs into (Sample_Id, R1, R2), pairing by Sample_Id
+    reads = DEMUX.out.reads.flatMap { pool, r1s, r2s ->
+        def l1 = (r1s instanceof List) ? r1s : [r1s]
+        def l2 = (r2s instanceof List) ? r2s : [r2s]
+        def m2 = l2.collectEntries { f -> [(f.name.replaceFirst(/_R2\.fq\.gz$/, '')): f] }
+        l1.collect { f1 -> def s = f1.name.replaceFirst(/_R1\.fq\.gz$/, ''); tuple(s, f1, m2[s]) }
+    }
+
+    ALIGN(reads, ref_ready)
     GENOTYPE(ALIGN.out)
 
     qc_in = GENOTYPE.out.map { sample, vcf, csi ->
@@ -43,12 +61,18 @@ workflow {
             .groupTuple(by: 0)
     )
 
+    // demux balance QC (flag, don't block) — aggregates every pool's cutadapt json
+    DEMUX_QC(DEMUX.out.json.collect(), well_map)
+
     // ---- (2) CALL DOSAGE on the existing BC2S3 counts -------------------
-    // One binhmm run over the whole cohort: the merged counts file + the sample->donor map + every
-    // donor mask. The R script reads the counts once and keeps each line to its F1's mask sites.
-    BINHMM_DOSAGE(
-        file(params.bc2s3_counts),                             // merged allelic_counts50K.tsv
-        file(params.bc2s3_samples),                            // sample,donor map
-        masks.map { donor, mask_file -> mask_file }.collect()  // all <donor>.hd.tsv.gz
-    )
+    // One binhmm run over the whole cohort: merged counts + sample->donor map + every donor mask.
+    // Independent of the mask half; runs only once its inputs exist (the sample->donor map is built
+    // from the pedigree separately), so Gate 0 can validate the mask half on its own.
+    if (file(params.bc2s3_counts).exists() && file(params.bc2s3_samples).exists()) {
+        BINHMM_DOSAGE(
+            file(params.bc2s3_counts),                             // merged allelic_counts50K.tsv
+            file(params.bc2s3_samples),                            // sample,donor map
+            masks.map { donor, mask_file -> mask_file }.collect()  // all <donor>.hd.tsv.gz
+        )
+    }
 }

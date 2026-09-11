@@ -16,6 +16,11 @@ process BUILD_HD {
     script:
     // per donor: drop QC-failed plants, union ALT within called teosinte blocks (cross-ear concordance)
     """
-    build_hd.R --donor ${donor} --vcfs "${vcfs}" --qc "${qcs}" --out ${donor}.hd.tsv.gz
+    Rscript "${projectDir}/bin/build_hd.R" --donor ${donor} --vcfs "${vcfs}" --qc "${qcs}" --out ${donor}.hd.tsv.gz
+    """
+
+    stub:
+    """
+    : > ${donor}.hd.tsv.gz
     """
 }

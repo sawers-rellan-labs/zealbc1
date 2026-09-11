@@ -27,4 +27,9 @@ process INDEX_REF {
         echo "faidx present; skipping"
     fi
     """
+
+    stub:
+    """
+    echo "stub INDEX_REF ${reference}"
+    """
 }

@@ -14,6 +14,7 @@ dependencies:
   - r-data.table
   - r-optparse
   - r-ggplot2
+  - r-jsonlite
   - r-devtools
   - r-remotes
   - r-rcpp

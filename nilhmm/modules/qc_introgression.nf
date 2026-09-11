@@ -16,7 +16,12 @@ process QC_INTROGRESSION {
     script:
     // contamination QC: taxon match, hom-teosinte VAF tail, segment structure -> pass/fail flag
     """
-    qc_introgression.R --vcf ${vcf} --sample ${sample} --donor ${donor} --taxon ${taxon} \
+    Rscript "${projectDir}/bin/qc_introgression.R" --vcf ${vcf} --sample ${sample} --donor ${donor} --taxon ${taxon} \
       --out ${sample}.qc.tsv
+    """
+
+    stub:
+    """
+    printf 'sample\\tpass\\n${sample}\\ttrue\\n' > ${sample}.qc.tsv
     """
 }

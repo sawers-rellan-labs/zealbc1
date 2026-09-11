@@ -21,7 +21,7 @@ process BINHMM_DOSAGE {
     // `name`). No split, no fan-out — binhmm is serial but cheap; memory (hold the merged table) is
     // the real reservation. --masks-dir . picks up the staged *.hd.tsv.gz.
     """
-    binhmm_dosage.R \
+    Rscript "${projectDir}/bin/binhmm_dosage.R" \
       --counts ${counts} \
       --samples ${samples} \
       --masks-dir . \
@@ -29,5 +29,10 @@ process BINHMM_DOSAGE {
       --bin-size ${params.bin_size} \
       --threads ${task.cpus} \
       --out bc2s3_dosage.tsv.gz
+    """
+
+    stub:
+    """
+    : > bc2s3_dosage.tsv.gz
     """
 }

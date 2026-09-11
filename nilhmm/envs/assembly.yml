@@ -8,3 +8,4 @@ dependencies:
   - samtools=1.21
   - bcftools=1.21
   - htslib=1.21
+  - cutadapt=4.9      # inline-inline demux (exact match, -Z fast gzip)

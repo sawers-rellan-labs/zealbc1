@@ -1,0 +1,35 @@
+#!/bin/bash
+#SBATCH --job-name=nilhmm_stub
+#SBATCH --account=maize_cpu
+#SBATCH --partition=compute
+#SBATCH --qos=short
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --mem=4G
+#SBATCH --time=00:15:00
+#SBATCH --output=%x_%j.out
+#SBATCH --error=%x_%j.err
+#
+# Gate 0 — validate the whole DAG end to end with -stub-run (every module's stub: touches its
+# outputs). No tools, no data, no Slurm children, no conda. Runs on the short QOS (hazel's debug
+# queue). Submit from ZEAL/code/nilhmm:  sbatch q_nilhmm_stub.sh
+#
+# Isolated launch + work dir so this run's .nextflow/history never poisons the production -resume.
+
+set -euo pipefail
+SUBMIT_DIR="${SLURM_SUBMIT_DIR:-$PWD}"        # ZEAL/code/nilhmm
+PROJ="$SUBMIT_DIR"
+ZEAL="$(cd "$SUBMIT_DIR/../.." && pwd)"
+STUB_DIR="$ZEAL/results/stub"
+mkdir -p "$STUB_DIR"
+
+source ~/.bashrc
+conda activate /share/maize/frodrig4/conda/env/nextflow
+
+echo "=== nilhmm Gate 0 (-stub-run) ==="
+echo "Started: $(date)"; nextflow -version 2>&1 | head -3
+
+cd "$STUB_DIR"
+nextflow run "$PROJ/main.nf" -profile stub -stub-run -work-dir "$STUB_DIR/work" 2>&1
+
+echo "Finished: $(date)"

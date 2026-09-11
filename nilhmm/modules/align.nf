@@ -1,7 +1,7 @@
 process ALIGN {
     tag    "${sample}"
     label  'align'
-    publishDir "${params.outdir}/bam", mode: 'copy', pattern: '*.bam*'
+    publishDir "${params.outdir}/cram", mode: 'copy', pattern: '*.cram*'
 
     cpus   8
     memory '24 GB'
@@ -12,15 +12,23 @@ process ALIGN {
     val ready                          // gate: reference is minibwa-indexed + faidx'd
 
     output:
-    tuple val(sample), path("${sample}.bam"), path("${sample}.bam.bai")
+    tuple val(sample), path("${sample}.cram"), path("${sample}.cram.crai")
 
     script:
-    // reference read by absolute path (rather than staged); must be minibwa-indexed once:
-    //   minibwa index ${params.reference}   -> <ref>.l2b, <ref>.mbw   (18N RAM; add -l for low-mem)
+    // CRAM is the durable per-plant product (~2-3 GB @ ~9x); the demuxed FASTQs are disposable (work/).
+    // reference read by absolute path (must be minibwa-indexed once by INDEX_REF).
     """
+    set -euo pipefail
     minibwa map -t ${task.cpus} ${params.reference} ${r1} ${r2} \
       | samtools sort -@ 2 -o aln.bam
-    samtools view -b -F 0x904 -q ${params.mapq} aln.bam > ${sample}.bam
-    samtools index ${sample}.bam
+    samtools view -T ${params.reference} -C -F 0x904 -q ${params.mapq} -o ${sample}.cram aln.bam
+    samtools index ${sample}.cram
+    rm -f aln.bam
+    """
+
+    stub:
+    """
+    : > ${sample}.cram
+    : > ${sample}.cram.crai
     """
 }
