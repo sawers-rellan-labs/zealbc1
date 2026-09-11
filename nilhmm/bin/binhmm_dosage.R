@@ -1,26 +1,29 @@
 #!/usr/bin/env Rscript
-# binhmm_dosage.R — per BC2S3 line: restrict the existing GATK allelic counts to this line's F1
-# informative sites (the mask), then call ancestry/dosage with nilhmm's binned Gaussian HMM.
+# binhmm_dosage.R — BC2S3 ancestry/dosage over the whole cohort in ONE nilhmm call.
+#
+# The existing BC2S3 allelic counts are ALREADY MERGED into a single table with a SAMPLE column
+# (allelic_counts50K.tsv). We do NOT split it per sample: read it once, restrict each line's rows to
+# its F1 donor's informative sites (the mask = the whole point of the BC1 effort), then hand the long
+# table to call_ancestry(caller="binhmm"), which dispatches per `name` internally. One R process,
+# no Nextflow fan-out — binhmm's per-sample loop is serial but cheap (50K sites binned to 1 Mb).
 #
 # caller = "binhmm": bins the genome (bin_size, default 1 Mb) and runs an anchored 3-state
-# Gaussian-emission HMM per bin. State REF/HET/ALT = teosinte dosage 0/1/2 -> segments AND dosage
-# in one pass. (First version = Gaussian; a beta-binomial-over-bin-counts emission is a later swap,
-# NOT a switch to bbnil, which is infeasible per-site over the ~27M-site catalog.)
+# Gaussian-emission HMM per bin. State REF/HET/ALT = teosinte dosage 0/1/2 -> segments AND dosage in
+# one pass. (Gaussian now; a beta-binomial-over-bin-counts emission is a later swap, NOT bbnil, which
+# is infeasible per-site over the ~27M-site catalog.)
 #
 # Inputs
-#   --counts   GATK CollectAllelicCounts TSV for this line (SAM-style '@' header, then columns
-#              CONTIG POSITION REF_COUNT ALT_COUNT REF_NUCLEOTIDE ALT_NUCLEOTIDE)
-#   --mask     hd/<donor>.hd.tsv.gz : this F1's informative sites (cols: chrom pos ref alt donor_allele)
-#   --sample   line id      --donor  F1/donor id (accession_P<P1>)
-#   --design   BC{n}S{m} pedigree token (default BC2S3)   --bin-size  bin width bp (default 1e6)
-#   --out      <sample>.dosage.tsv.gz
+#   --counts     merged allelic counts TSV (header: SAMPLE CONTIG POSITION REF_COUNT ALT_COUNT
+#                REF_NUCLEOTIDE ALT_NUCLEOTIDE). CONTIG is 'chr'-prefixed.
+#   --samples    CSV mapping the BC2S3 lines to call: columns sample,donor (this also SELECTS which
+#                SAMPLE rows to process — unmapped samples in the counts file are ignored).
+#   --masks-dir  dir of <donor>.hd.tsv.gz (cols: chrom pos ref alt donor_allele); chrom 'chr'-prefixed.
+#   --design     BC{n}S{m} pedigree token (default BC2S3)   --bin-size  bin width bp (default 1e6)
+#   --threads    data.table threads (fread); binhmm itself is serial (default 1)
+#   --out        combined output <bc2s3_dosage.tsv.gz> (segment schema + our sample/donor ids)
 #
-# nilhmm read_counts() wants a headerless "chr pos ref n_ref alt n_alt" TSV; ALT is already the
-# teosinte/donor allele in the bzeaseq catalog (pre-polarized), so no re-orientation is needed.
-#
-# NOTE: assumes the per-line counts are standard GATK CollectAllelicCounts output. If the deployed
-# counts are a different shape (e.g. a merged all-samples table, or already chr/pos/n_ref/n_alt),
-# adjust the read/rename block below.
+# ALT is already the teosinte/donor allele in the bzeaseq catalog (pre-polarized), so no
+# re-orientation is needed. nilhmm wants chr as INTEGER, so 'chr' is stripped for the call only.
 
 suppressPackageStartupMessages({
   library(data.table)
@@ -32,42 +35,57 @@ args <- commandArgs(trailingOnly = TRUE)
 getopt <- function(flag, default = NULL) {
   i <- match(flag, args); if (is.na(i)) return(default); args[i + 1]
 }
-counts_f <- getopt("--counts")
-mask_f   <- getopt("--mask")
-sample   <- getopt("--sample")
-if (is.null(sample)) sample <- if (!is.null(counts_f)) sub("\\..*$", "", basename(counts_f)) else "sample"
-donor    <- getopt("--donor",  NA_character_)
-design   <- getopt("--design", "BC2S3")
-bin_size <- as.numeric(getopt("--bin-size", "1e6"))
-out      <- getopt("--out", paste0(sample, ".dosage.tsv.gz"))
-stopifnot(!is.null(counts_f), !is.null(mask_f))
+counts_f  <- getopt("--counts")
+samples_f <- getopt("--samples")
+masks_dir <- getopt("--masks-dir")
+design    <- getopt("--design", "BC2S3")
+bin_size  <- as.numeric(getopt("--bin-size", "1e6"))
+threads   <- as.integer(getopt("--threads", "1"))
+out       <- getopt("--out", "bc2s3_dosage.tsv.gz")
+stopifnot(!is.null(counts_f), !is.null(samples_f), !is.null(masks_dir))
+setDTthreads(threads)
 
-## ---- read GATK counts, map to read_counts columns -----------------------
-cnt <- fread(cmd = sprintf("grep -v '^@' %s", shQuote(counts_f)), header = TRUE)
-setnames(cnt,
-         old = c("CONTIG","POSITION","REF_NUCLEOTIDE","REF_COUNT","ALT_NUCLEOTIDE","ALT_COUNT"),
-         new = c("chr","pos","ref","n_ref","alt","n_alt"),
-         skip_absent = TRUE)
-cnt <- cnt[, .(chr, pos = as.integer(pos), ref, n_ref = as.integer(n_ref),
-               alt, n_alt = as.integer(n_alt))]
+## ---- sample -> donor map (also the selector of which lines to call) ------
+smap <- fread(samples_f)
+setnames(smap, tolower(names(smap)))
+stopifnot(all(c("sample","donor") %in% names(smap)))
+smap <- unique(smap[, .(sample = as.character(sample), donor = as.character(donor))])
 
-## ---- restrict to this F1's informative (mask) sites ---------------------
-mask <- fread(mask_f)
-setnames(mask, 1:2, c("chr", "pos"))
-mask[, pos := as.integer(pos)]
-setkey(cnt, chr, pos); setkey(mask, chr, pos)
-obs <- cnt[mask[, .(chr, pos)], nomatch = 0L]
-if (nrow(obs) == 0L) stop(sprintf("binhmm_dosage: no counts at mask sites for %s", sample))
+## ---- per-donor masks (union of informative sites) -----------------------
+mask_files <- list.files(masks_dir, pattern = "\\.hd\\.tsv\\.gz$", full.names = TRUE)
+stopifnot(length(mask_files) > 0)
+masks <- rbindlist(lapply(mask_files, function(f) {
+  d <- sub("\\.hd\\.tsv\\.gz$", "", basename(f))
+  m <- fread(f); setnames(m, 1:2, c("chr", "pos"))
+  data.table(donor = d, chr = as.character(m$chr), pos = as.integer(m$pos))
+}), use.names = TRUE)
+have_masks <- intersect(unique(smap$donor), unique(masks$donor))
+if (!length(have_masks)) stop("binhmm_dosage: no donor masks match the sample map")
+miss <- setdiff(unique(smap$donor), have_masks)
+if (length(miss)) message(sprintf("binhmm_dosage: %d donor(s) have no mask, their lines are skipped: %s",
+                                   length(miss), paste(head(miss, 10), collapse = ", ")))
 
-## ---- call ancestry/dosage (binned Gaussian HMM) -------------------------
-tmp <- tempfile(fileext = ".tsv")
-fwrite(obs[, .(chr, pos, ref, n_ref, alt, n_alt)], tmp, sep = "\t", col.names = FALSE)
+## ---- read the merged counts once (only the 5 columns we need) -----------
+cnt <- fread(counts_f, select = c("SAMPLE","CONTIG","POSITION","REF_COUNT","ALT_COUNT"))
+setnames(cnt, c("name","chr","pos","n_ref","n_alt"))
+cnt[, `:=`(name = as.character(name), chr = as.character(chr),
+           pos = as.integer(pos), n_ref = as.integer(n_ref), n_alt = as.integer(n_alt))]
 
-calls <- call_ancestry(read_counts(tmp), caller = "binhmm", design = design, bin_size = bin_size)
+## ---- keep only mapped lines, attach donor, restrict to that F1's mask ----
+cnt <- cnt[name %in% smap$sample]
+cnt <- merge(cnt, smap, by.x = "name", by.y = "sample", allow.cartesian = FALSE)  # + donor
+obs <- merge(cnt, masks, by = c("donor","chr","pos"))                             # inner: mask sites
+if (!nrow(obs)) stop("binhmm_dosage: no counts fall on any donor's mask sites")
+obs[, chr := as.integer(sub("^chr", "", chr))]                                    # nilhmm wants int chr
+setorder(obs, name, chr, pos)
+
+## ---- one binned-Gaussian-HMM call over the whole cohort -----------------
+# `data` carries name (per-sample dispatch) + donor (binhmm's donor label) + n_ref/n_alt.
+data <- obs[, .(name, chr, pos, n_ref, n_alt, donor)]
+calls <- call_ancestry(as.data.frame(data), caller = "binhmm", design = design, bin_size = bin_size)
 setDT(calls)
 
-## ---- annotate + write (segment schema + our ids) ------------------------
-calls[, sample := sample]
-if (!is.na(donor)) calls[, f1_donor := donor]
+## ---- write one combined table -------------------------------------------
 fwrite(calls, out, sep = "\t", compress = "gzip")
-cat(sprintf("[%s] mask_sites=%d segments=%d -> %s\n", sample, nrow(obs), nrow(calls), out))
+cat(sprintf("binhmm_dosage: lines=%d mask_donors=%d obs_rows=%d segments=%d -> %s\n",
+            uniqueN(obs$name), uniqueN(obs$donor), nrow(obs), nrow(calls), out))

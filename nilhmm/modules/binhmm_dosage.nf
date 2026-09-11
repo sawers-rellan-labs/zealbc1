@@ -1,24 +1,33 @@
 process BINHMM_DOSAGE {
-    tag    "${sample}"
+    tag    "cohort"
     label  'rstats'
     publishDir "${params.outdir}/bc2s3_dosage", mode: 'copy'
 
-    cpus   2
-    memory '16 GB'
-    time   '4h'
+    cpus   4
+    memory '32 GB'
+    time   '8h'
 
     input:
-    tuple val(sample), val(donor), path(counts), path(mask)
+    path counts               // merged allelic_counts50K.tsv (SAMPLE column)
+    path samples              // sample,donor map (selects which lines to call)
+    path masks                // all <donor>.hd.tsv.gz, staged flat into the work dir
 
     output:
-    path "${sample}.dosage.tsv.gz"
+    path "bc2s3_dosage.tsv.gz"
 
     script:
-    // Take the EXISTING BC2S3 counts, keep only this F1's informative (mask) sites, then run
-    // nilhmm's binned Gaussian HMM (caller="binhmm"). No alignment, no re-counting.
-    // Emission: Gaussian now; beta-binomial over BIN counts is a later swap (not bbnil).
+    // ONE nilhmm call over the whole cohort: read the merged counts once, restrict each line to its
+    // F1 donor's mask sites, then caller="binhmm" (binned Gaussian HMM; dispatches per sample on
+    // `name`). No split, no fan-out — binhmm is serial but cheap; memory (hold the merged table) is
+    // the real reservation. --masks-dir . picks up the staged *.hd.tsv.gz.
     """
-    binhmm_dosage.R --counts ${counts} --mask ${mask} --sample ${sample} --donor ${donor} \
-      --design ${params.design} --bin-size ${params.bin_size} --out ${sample}.dosage.tsv.gz
+    binhmm_dosage.R \
+      --counts ${counts} \
+      --samples ${samples} \
+      --masks-dir . \
+      --design ${params.design} \
+      --bin-size ${params.bin_size} \
+      --threads ${task.cpus} \
+      --out bc2s3_dosage.tsv.gz
     """
 }

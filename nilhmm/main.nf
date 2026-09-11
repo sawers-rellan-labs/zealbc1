@@ -1,9 +1,12 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl = 2
 
-// The point of Branch A is the per-F1 MASK of informative sites. Branch B applies it to the
-// ALREADY-EXISTING BC2S3 counts to exclude the non-informative sites per F1, then binHMM.
-// BC2S3 is already aligned and counted (rsstu .../BZea/bzeaseq) — Branch B does NOT map or count.
+// nilhmm Phase 1, two halves:
+//   (1) BUILD THE MASK — align+genotype the 384 BC1 plants, and per F1 donor collect the sites where
+//       a BC1 plant is het (the informative sites for that F1): <donor>.hd.tsv.gz.
+//   (2) CALL DOSAGE — take the ALREADY-EXISTING merged BC2S3 allelic counts, drop the sites not in
+//       each line's F1 mask, and run nilhmm binhmm. BC2S3 is already aligned+counted; half 2 does
+//       NOT map or count.
 
 include { INDEX_REF        } from './modules/index_ref'
 include { ALIGN            } from './modules/align'
@@ -14,7 +17,7 @@ include { BINHMM_DOSAGE    } from './modules/binhmm_dosage'     // mask -> exclu
 
 workflow {
 
-    // ---- Branch A: BC1 individuals -> per-F1 mask -----------------------
+    // ---- (1) BUILD THE MASK from the BC1 plants -------------------------
     def bc1_sheet = file(params.bc1_samplesheet).splitCsv(header: true)
     donor_of = bc1_sheet.collectEntries { r -> [(r.sample): r.donor] }
     taxon_of = bc1_sheet.collectEntries { r -> [(r.sample): r.taxon] }
@@ -34,21 +37,18 @@ workflow {
     }
     QC_INTROGRESSION(qc_in)
 
-    mask = BUILD_HD(                                            // emits tuple(donor, mask_file)
+    masks = BUILD_HD(                                           // emits tuple(donor, mask_file)
         QC_INTROGRESSION.out
             .map { sample, donor, vcf, csi, qc -> tuple(donor, vcf, csi, qc) }
             .groupTuple(by: 0)
     )
 
-    // ---- Branch B: existing BC2S3 counts -> exclude non-informative -> binHMM ----
-    // bc2s3_counts.csv : sample,donor,counts   (counts = existing per-line allelic counts)
-    bc2_counts = Channel.fromPath(params.bc2s3_counts)
-        .splitCsv(header: true)
-        .map { r -> tuple(r.donor, r.sample, file(r.counts)) }
-
-    dosage_in = bc2_counts
-        .combine(mask, by: 0)                                  // join line to its F1's mask
-        .map { donor, sample, counts, mask_file -> tuple(sample, donor, counts, mask_file) }
-
-    BINHMM_DOSAGE(dosage_in)
+    // ---- (2) CALL DOSAGE on the existing BC2S3 counts -------------------
+    // One binhmm run over the whole cohort: the merged counts file + the sample->donor map + every
+    // donor mask. The R script reads the counts once and keeps each line to its F1's mask sites.
+    BINHMM_DOSAGE(
+        file(params.bc2s3_counts),                             // merged allelic_counts50K.tsv
+        file(params.bc2s3_samples),                            // sample,donor map
+        masks.map { donor, mask_file -> mask_file }.collect()  // all <donor>.hd.tsv.gz
+    )
 }
