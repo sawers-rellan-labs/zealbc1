@@ -4,7 +4,7 @@
 # Per taxon (and once for all taxa) build a PCA of:
 #   BC1 individuals            open circles   (expected scatter: Mendelian sampling + missingness)
 #   synthetic DH-H_d per donor filled circles (complete/synthetic; should cluster near teosinte pole)
-#   teosinte reference samples triangles      (real pole; ~70% missing -> mean-impute pulls it in)
+#   teosinte reference (1 per taxon)  triangle (TIL11 parv, TIL25 mex, least-missing for the rest)
 #   B73                        x              (recurrent pole; the REAL B73 genotype from the panel)
 # Per-group call-rate filter -> mean-impute -> standardize -> PCA. Flags each BC1 whose nearest
 # DH-H_d anchor is not its recorded donor.
@@ -45,11 +45,27 @@ read_vcf_dosage <- function(vcf) {
 
 ## ---- reference + B73 (from the panel), with taxon from metadata ----------
 rmeta <- fread(ref_meta_f)
-ref_s <- rmeta[is_reference == TRUE, sample]
-b73_s <- rmeta[is_B73 == TRUE, sample]
-Gr <- read_vcf_dosage(ref_vcf)                     # read all; subset to reference + B73 by name
-ref_s <- intersect(ref_s, colnames(Gr)); b73_s <- intersect(b73_s, colnames(Gr))
-rtax  <- setNames(unname(PREFIX_TAXON[rmeta$maizegdb_prefix]), rmeta$sample)
+Gr <- read_vcf_dosage(ref_vcf)                     # all panel samples; we subset to anchors + B73
+b73_s <- intersect(rmeta[is_B73 == TRUE, sample], colnames(Gr))
+
+# ONE reference anchor per taxon:
+#   parviglumis -> TIL11 ; mexicana -> TIL25  (TIL18 is NOT in the panel; TIL25 is present but
+#   metadata-mislabeled Zv, so its taxon is forced here). Other taxa -> the reference sample with
+#   the least missing data. Edit fixed_anchor to change the mex/parv choice.
+fixed_anchor <- c(parviglumis = "TIL11", mexicana = "TIL25")
+ref_all <- rmeta[is_reference == TRUE, .(sample, taxon = unname(PREFIX_TAXON[maizegdb_prefix]))]
+ref_all <- ref_all[sample %in% colnames(Gr)]
+pick_anchor <- function(tx) {
+  if (tx %in% names(fixed_anchor) && fixed_anchor[[tx]] %in% colnames(Gr)) return(fixed_anchor[[tx]])
+  cand <- ref_all[taxon == tx, sample]
+  if (!length(cand)) { message("cohort_qc: no reference anchor for ", tx); return(NA_character_) }
+  cr <- colMeans(!is.na(Gr[, cand, drop = FALSE])); cand[which.max(cr)]   # least missing
+}
+anchor_tax <- unique(c(names(fixed_anchor), na.omit(ref_all$taxon)))
+ref_anchor <- setNames(vapply(anchor_tax, pick_anchor, ""), anchor_tax)
+ref_anchor <- ref_anchor[!is.na(ref_anchor) & nzchar(ref_anchor)]
+ref_s <- unname(ref_anchor)                        # one reference sample per taxon
+rtax  <- setNames(names(ref_anchor), ref_anchor)   # sample -> taxon (forced from the anchor map)
 
 ## ---- BC1 ----------------------------------------------------------------
 bm <- fread(bc1_meta_f)
