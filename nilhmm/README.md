@@ -4,6 +4,26 @@
 1. **Build the mask** — turn the BC1 individuals into a **per-F1 mask of informative sites** (the sites where a BC1 plant is het).
 2. **Call dosage** — apply that mask to the **already-existing** merged BC2S3 counts (drop the sites not informative for each line's F1), then run binHMM. BC2S3 is already aligned and counted (`rsstu .../BZea/bzeaseq`) — half 2 does **not** map or count.
 
+## Pipeline overview
+
+```mermaid
+graph TD
+    REF[B73 v5 reference] --> INDEX_REF
+    SHEET[bc1_samples.csv<br/>384 BC1 plants] --> ALIGN
+    INDEX_REF --> ALIGN
+    ALIGN --> GENOTYPE[GENOTYPE<br/>mpileup -T sites]
+    GENOTYPE --> QC_INTROGRESSION
+    QC_INTROGRESSION -->|groupTuple by donor| BUILD_HD[BUILD_HD<br/>per-F1 mask]
+    BUILD_HD --> MASKS[hd/&lt;donor&gt;.hd.tsv.gz]
+
+    COUNTS[allelic_counts50K.tsv<br/>merged, SAMPLE col] --> BINHMM_DOSAGE
+    MAP[bc2s3_samples.csv<br/>sample,donor] --> BINHMM_DOSAGE
+    MASKS --> BINHMM_DOSAGE[BINHMM_DOSAGE<br/>one cohort call]
+    BINHMM_DOSAGE --> OUT[bc2s3_dosage.tsv.gz]
+```
+
+The live DAG comes from `sbatch q_nilhmm_dryrun.sh` (a `-preview -with-dag` dry run — no tasks run).
+
 ## Layout (nilhifi structure: main.nf wires, resources live in each module)
 ```
 main.nf                 wiring only (imports + workflow)
