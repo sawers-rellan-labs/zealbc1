@@ -16,7 +16,7 @@
 #
 # Isolated launch + work dir so this run's .nextflow/history never poisons the production -resume.
 
-set -euo pipefail
+# NOTE: no `set -u` — `source ~/.bashrc` trips on unbound $PS1 and kills the job before nextflow starts.
 SUBMIT_DIR="${SLURM_SUBMIT_DIR:-$PWD}"        # ZEAL/code/nilhmm
 PROJ="$SUBMIT_DIR"
 ZEAL="$(cd "$SUBMIT_DIR/../.." && pwd)"

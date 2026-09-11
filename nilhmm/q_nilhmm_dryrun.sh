@@ -19,8 +19,7 @@
 # dry-run session -> full re-execution. We launch the preview from an isolated dir so its
 # history never mixes with the production run's (which lives in ZEAL/code/nilhmm/.nextflow).
 
-set -euo pipefail
-
+# NOTE: no `set -u` — `source ~/.bashrc` trips on unbound $PS1 and kills the job before nextflow starts.
 SUBMIT_DIR="${SLURM_SUBMIT_DIR:-$PWD}"     # ZEAL/code/nilhmm ($0 is a spool copy under sbatch)
 PROJ="$SUBMIT_DIR"
 ZEAL="$(cd "$SUBMIT_DIR/../.." && pwd)"    # code/nilhmm -> ZEAL
