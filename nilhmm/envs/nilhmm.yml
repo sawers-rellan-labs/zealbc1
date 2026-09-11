@@ -13,6 +13,7 @@ dependencies:
   - r-base=4.4
   - r-data.table
   - r-optparse
+  - r-ggplot2
   - r-devtools
   - r-remotes
   - r-rcpp
