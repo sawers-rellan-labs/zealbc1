@@ -3,8 +3,8 @@ process INDEX_REF {
     label  'align'
 
     cpus   8
-    memory '64 GB'     // minibwa index uses ~18N RAM (~42 GB for a 2.3 Gb genome)
-    time   '2h'
+    memory '64 GB'     // measured: peak RSS 39 GB for B73 v5 (2.3 Gb); 64 GB gives headroom
+    time   '30m'       // measured: minibwa index B73 v5 = 3m56s (8 cpu). 30m is ample headroom
 
     input:
     val reference
