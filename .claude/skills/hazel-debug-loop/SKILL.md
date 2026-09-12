@@ -47,6 +47,14 @@ are in `nilhmm/docs/testing_benchmarking.md`.
   heavy process) on the login node.
 
 ## The gate ladder (climb only when the current passes)
+0. **Gate −1 · CodeRabbit review** (optional, local, pre-push): on a substantive code change, run
+   `coderabbit review --committed --base main --agent` (or `--uncommitted` before committing) and apply
+   the *verified* findings before push. It catches **code/API bugs** (e.g. an R `else` on a new line, a
+   `system2` misuse, a `publishDir` needing a closure) cheaper than a Slurm round-trip. It does NOT
+   catch environment/data bugs (QOS caps, no-internet-on-compute, exec-bit ACL, a CDS-vs-genome index)
+   — the gates below do. **Verify every finding against the code** before applying: it can be
+   confidently wrong (it once suggested `shQuote` for a no-shell `system2`, which would re-break it).
+   Skip for one-line/trivial edits. (Repo isn't linked to a CodeRabbit org → free CLI allowance.)
 1. **Gate 0 · `-stub-run`** (short-QOS): every module's `stub:` touches its outputs → the whole DAG
    runs in seconds, proving wiring / channel joins / filenames.
 2. **Gate 1 · tiny real subset** (short-QOS): real tools, ~1M read pairs from one pool / a few `SAMPLE` ids.
