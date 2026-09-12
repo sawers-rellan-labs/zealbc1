@@ -6,7 +6,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=128G                     # proali OOM'd at 32G on chr10; go generous to get a working run + real peak
+#SBATCH --mem=200G                     # divergent taxa (Gigi) OOM'd unbounded even at 128G; bounded -w + headroom
 #SBATCH --time=02:00:00
 #SBATCH --array=0-1                     # 0=Zx-TIL18 (collinear), 1=Zd-Gigi (divergent)
 #SBATCH --output=%x_%A_%a.out
@@ -46,10 +46,13 @@ minimap2 -x splice -t "$NP" -k 12 -a -p 0.4 -N 20 "$REF"   "${T}_cds.fa" > "${T}
 minimap2 -x splice -t "$NP" -k 12 -a -p 0.4 -N 20 "$QUERY" "${T}_cds.fa" > "${T}_query.sam"
 
 echo "[03] anchorwave proali -> MAF"
+# -w = WFA alignment window width (default 100000). Divergent taxa (Gigi) blow the wavefront past 128G at the
+# default; halving to 50000 bounds the per-window WFA matrix (AnchorWave FAQ memory fix for TE-rich/divergent
+# blocks). Tighten -w / --mem after measuring the bounded peak.
 anchorwave proali -i "$GFF" -r "$REF" -as "${T}_cds.fa" \
   -a "${T}_query.sam" -ar "${T}_ref.sam" -s "$QUERY" \
   -n "${T}_anchors" -o "${T}_chr10.maf" -f "${T}_chr10.f.maf" \
-  -t "$NP" -R 1 -Q 1
+  -t "$NP" -R 1 -Q 1 -w 50000
 
 echo "[03] $(date '+%H:%M:%S') DONE $T"
 ls -lh "${T}_chr10.maf" "${T}_chr10.f.maf" 2>/dev/null
