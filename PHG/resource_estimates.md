@@ -18,8 +18,11 @@ as each step runs. Full-genome extrapolation anchors live in `../agent/PHG_PILOT
 | `03_align_taxa_to_b73` — Gigi, `proali` **`-w 50000`** | 811459_1 | 8 | **32.7 GB** | **14:20** | COMPLETED, MAF 472 MB. Bounding the WFA window fixed the OOM (~4× less mem). Request was 200 G (16% used) → tighten to ~48 G. |
 | `03_align_taxa_to_b73` — TIL18, `proali` **`-w default`** | 811436_0 | 8 | **94.0 GB** | 36:51 | COMPLETED, MAF 442 MB; ref_bp_aligned 148,721,054; 10 blocks |
 | `03_align_taxa_to_b73` — TIL18, `proali` **`-w 50000`** | 811571_0 | 8 | **34.8 GB** | 12:16 | COMPLETED, MAF 446 MB; **ref_bp_aligned 148,721,054; 10 blocks — IDENTICAL to unbounded** |
-| `create-maf-vcf` (chr10) | — | — | — | — | pending |
-| `load-vcf` (chr10) | — | — | — | — | pending |
+| DB stage 1 `initdb→prepare→agc→create-ranges→create-ref-vcf` | 812418 | 8 | 2.8 GB | 58 s | COMPLETED. agc 96 MB; **4,685 chr10 ranges** (gene+intergenic, pad 500); B73 ref haplotypes loaded. prepare-assemblies appends ` sampleName=X`, keeps orig contig (B73 stays `chr10`). |
+| DB stage 2 `create-maf-vcf (2 taxa) → load-vcf` | 812482 | 8 | **12.8 GB** | **5:13** | COMPLETED. TIL18+Gigi h.vcf/g.vcf created + loaded. **Graph now = 3 samples (B73+TIL18+Gigi).** MAF files named `<sample>.maf`; query contigs match AGC → sequence resolves. `create-maf-vcf` doesn't mkdir its `-o` (must pre-create). |
+
+**PILOT VALIDATED END-TO-END (chr10):** subset → AnchorWave `proali` → prepare-assemblies → agc-compress →
+create-ranges → create-ref-vcf → create-maf-vcf → load-vcf → 3-founder graph. The full phg build recipe works.
 
 **AnchorWave memory driver:** proali peak is the base-level WFA of inter-anchor (intergenic) blocks, bounded by
 `-w` (window width, default 100000). At default `-w`, unbounded chr10 proali ran 94 GB (TIL18) to >128 GB OOM
