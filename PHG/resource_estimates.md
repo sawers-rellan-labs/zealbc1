@@ -26,11 +26,34 @@ as each step runs. Full-genome extrapolation anchors live in `../agent/PHG_PILOT
 (Gigi) — taxon-dependent and unpredictable. Inversions are handled at the anchoring level and are NOT the
 memory driver. Do not label taxa collinear/divergent without grounding — size from measured peaks.
 
-**DECIDED: bound all aligns with `-w 50000`.** Same-genome test (TIL18): `-w 50000` gave **identical**
-alignment (ref_bp_aligned 148,721,054; 10 blocks) as unbounded, at **~3× less memory (94→35 GB) and ~3× less
-time (37→12 min)**. So bounding is quality-neutral on chr10 and strictly cheaper. Universal recipe: `-w 50000`,
-`--mem ~48 GB`, uniform for all aligns (no per-taxon OOM risk). Definitive confirmation still pending: compare
-gene-range haplotype hashes out of `create-maf-vcf` (bounded vs unbounded MAF).
+**DECIDED: bound all aligns with `-w 50000 -t 8` (`--mem 48 G`).** Confirmed quality-neutral on BOTH a
+less-divergent (TIL18) and the most-divergent available (Gigi) taxon — same MAF coverage to the base pair:
+
+| taxon | recipe | ref_bp aligned | mem | wall |
+|---|---|---|---|---|
+| TIL18 | `-w 50000 -t8`  | 148,721,054 (10 blocks) | 35 GB | 12 min |
+| TIL18 | `-w 100000 -t8` | 148,721,054 (10 blocks) — identical | 94 GB | 37 min |
+| Gigi  | `-w 50000 -t8`  | 139,125,172 (9 blocks) | 33 GB | 14 min |
+| Gigi  | `-w 100000 -t4` | 139,125,172 (9 blocks) — identical | 67 GB | 54 min |
+| Gigi  | `-w 100000 -t8 -M100` | 139,125,172 (9 blocks) — identical | 108 GB | 23 min |
+
+Gigi's 91.3% ref coverage is **real divergence, not window truncation** (identical at full `-w`). So `-w 50000`
+loses zero alignment and is cheapest on both axes — it wins outright.
+
+**`-M` / anchorwave 1.3.1 proved unnecessary for the align.** `-M` works (feasible `-M100 -t8` held ~108 GB and
+completed; `-M/-t` must be ≥ ~10 GB/worker, and `-M` is predictive so give `--mem` headroom), but since `-w 50000`
+is quality-neutral and far cheaper, we don't need it. `anchorwave13` (1.3.1) stays as the align env (newer, `-M`
+available if ever needed); the recipe is plain `proali -w 50000 -t 8`.
+
+**Memory model = `-t × per-thread-WFA(-w)`, not just `-w`.** proali parallelizes inter-anchor region alignment
+across threads, so peak ≈ (worst-case per-thread WFA memory, set by `-w`) × `-t`. Evidence: Gigi `-t 8` unbounded
+OOM'd in 6:37 (8 threads spiking on big divergent gaps simultaneously); bounded `-t 8` ≈ 33–35 GB (~4–5 GB/thread).
+Implications for the FULL run:
+- chr10's ~35 GB / 48 GB does **NOT** extrapolate to full genome — the whole genome has more/larger inter-anchor
+  gaps, so per-thread memory is higher and `×t` amplifies it. **Measure full-genome bounded proali before sizing
+  the 100-align allocation.**
+- `-t` is a memory/speed dial: if full-genome bounded `-t 8` runs hot, `-t 4` roughly halves the peak (slower).
+  Keep `-w 50000` (quality-neutral) and tune `-t`/`--mem` from the full-genome measurement.
 
 **Full-genome faidx note:** a full-genome `samtools faidx` (all chromosomes) will read the whole 2.5–3.3 GB
 FASTA; peak was 6.25 GB at chr10 extract, so budget ~16 GB for the full-genome index step.
