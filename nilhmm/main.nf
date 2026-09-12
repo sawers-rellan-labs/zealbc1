@@ -12,6 +12,8 @@ include { DEMUX_QC         } from './modules/demux_qc'
 include { INDEX_REF        } from './modules/index_ref'
 include { ALIGN            } from './modules/align'
 include { GENOTYPE         } from './modules/genotype'
+include { MOSDEPTH         } from './modules/mosdepth'          // per-plant mapped coverage
+include { MULTIQC          } from './modules/multiqc'           // aggregate coverage + demux QC
 include { QC_INTROGRESSION } from './modules/qc_introgression'
 include { BUILD_HD         } from './modules/build_hd'          // per-F1 mask
 include { BINHMM_DOSAGE    } from './modules/binhmm_dosage'     // mask -> exclude -> binHMM
@@ -52,6 +54,7 @@ workflow {
 
     ALIGN(reads, ref_ready)
     GENOTYPE(ALIGN.out)
+    MOSDEPTH(ALIGN.out)                                          // per-plant mapped coverage
 
     qc_in = GENOTYPE.out.map { sample, vcf, csi ->
         tuple(sample, donor_of[sample], taxon_of[sample], vcf, csi)
@@ -66,6 +69,9 @@ workflow {
 
     // demux balance QC (flag, don't block) — aggregates every pool's cutadapt json
     DEMUX_QC(DEMUX.out.json.collect(), well_map)
+
+    // one per-sample coverage/QC report across all plants: mosdepth (mapped coverage) + cutadapt (demux)
+    MULTIQC(MOSDEPTH.out.mix(DEMUX.out.json).collect())
 
     // ---- (2) CALL DOSAGE on the existing BC2S3 counts -------------------
     // One binhmm run over the whole cohort: merged counts + sample->donor map + every donor mask.

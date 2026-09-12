@@ -1,0 +1,8 @@
+# Coverage/QC env (prebuilt on the login node; compute nodes have no internet).
+#   conda env create -p /share/maize/frodrig4/conda/env/qc -f envs/qc.yml
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - mosdepth=0.3
+  - multiqc=1.25

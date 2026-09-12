@@ -29,9 +29,9 @@ parse_one <- function(f) {
   input_pairs <- tryCatch(as.numeric(j$read_counts$input), error = function(e) NA_real_)
   a1 <- tryCatch(j$adapters_read1, error = function(e) NULL)
   rows <- rbindlist(lapply(a1, function(a) {
-    tr <- tryCatch(a$five_prime_end$trimmed_reads, error = function(e) NULL)
-    if (is.null(tr)) tr <- tryCatch(a$total_matches, error = function(e) NA_real_)
-    data.table(pool = pool, column = as.character(a$name), reads = as.numeric(tr))
+    # per-barcode matched pairs = total_matches (the cutadapt json has no five_prime_end$trimmed_reads)
+    data.table(pool = pool, column = as.character(a$name),
+               reads = as.numeric(tryCatch(a$total_matches, error = function(e) NA_real_)))
   }), fill = TRUE)
   if (!nrow(rows)) return(NULL)
   attr(rows, "input") <- input_pairs
@@ -48,9 +48,12 @@ dt[, frac_of_pool := reads / pool_median]
 dt[, untrimmed := input_pairs - sum(reads, na.rm = TRUE), by = pool]
 dt[, untrimmed_frac := untrimmed / input_pairs]
 dt[, flag_low_well := frac_of_pool < lo_frac]
+# sequenced depth from read counts (no alignment): pairs x 2 x read_len / genome
+genome <- as.numeric(getopt("--genome-size", "2.3e9")); readlen <- as.numeric(getopt("--read-len", "150"))
+dt[, coverage_x := round(reads * 2 * readlen / genome, 1)]
 
 setorder(dt, pool, column)
-fwrite(dt[, .(pool, column, Sample_Id, donor, taxon, reads, pool_median, frac_of_pool,
+fwrite(dt[, .(pool, column, Sample_Id, donor, taxon, reads, coverage_x, pool_median, frac_of_pool,
               input_pairs, untrimmed, untrimmed_frac, flag_low_well)], out, sep = "\t")
 
 # optional balance plot (won't fail the step if ggplot2 is absent)

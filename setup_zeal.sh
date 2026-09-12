@@ -43,6 +43,12 @@ if [ -s "$CIDX/b73.mbw" ]; then
 fi
 # else: INDEX_REF builds the minibwa .l2b/.mbw next to $Z/reference/B73.fa on first run.
 
+# SNP50K sites as a 0-based BED for mosdepth --by (depth at informative sites). Optional: skipped if
+# bcftools isn't on PATH here — the MOSDEPTH module guards on the BED existing.
+if command -v bcftools >/dev/null 2>&1 && [ ! -s "$Z/reference/sites.bed" ]; then
+    bcftools query -f '%CHROM\t%POS0\t%POS\n' "$Z/reference/sites.vcf.gz" > "$Z/reference/sites.bed"
+fi
+
 echo "ZEAL tree ready at $Z"; ls -l "$Z"
 echo "--- reference/ ---"; ls -l "$Z/reference"
 echo "NOTE: clone the repo to $Z/code and run nextflow from $Z/code/nilhmm"
