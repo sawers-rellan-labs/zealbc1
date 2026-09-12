@@ -7,7 +7,8 @@
 # Findings (2026-09-12):
 #   present in /rsstu/.../BZea/ref/ : B73 v5 (+.fai, chr10=chr10), B73 gene GFF,
 #     Zx-TIL18, Zv-TIL11, Zd-Gigi, Zh-RIMHU001 (all *.fa, NO .fai yet).
-#   MISSING: Zl-RIL003 (luxurians) — not on hazel; must be sourced for the full run.
+#   Zl-RIL003 (luxurians): was missing; downloaded from MaizeGDB to ref/ as bgzipped
+#     .fa.gz (+.fai/.gzi), md5-verified. All 5 taxa now present (chr1..chr10 naming).
 
 B=/rsstu/users/r/rrellan/BZea
 REF="$B/ref"
