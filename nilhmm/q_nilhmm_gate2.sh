@@ -36,6 +36,8 @@ nextflow run "$PROJ/main.nf" \
   -profile slurm \
   --pools 1B \
   --outdir "$G2" 2>&1
+rc=$?                                   # preserve Nextflow's exit so Slurm sees failures
 
-echo "Finished: $(date)"
+echo "Finished: $(date) (exit $rc)"
 echo "--- trace ---"; column -t "$G2/pipeline_info/trace.txt" 2>/dev/null | head -40
+exit $rc

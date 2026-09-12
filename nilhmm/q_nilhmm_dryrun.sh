@@ -46,8 +46,9 @@ echo ""
 # The workflow reads the sample sheets at DAG-build time (splitCsv), so they must exist
 # even for a preview. Warn clearly if they are missing rather than dying with a stack trace.
 for f in \
-  "$ZEAL/meta/bc1_samples.csv" \
-  "$ZEAL/meta/bc2s3_samples.csv" \
+  "$PROJ/../meta/bc1_libraries.csv" \
+  "$PROJ/../meta/bc1_well_map.csv" \
+  "$PROJ/../meta/bc.fasta" \
   "$ZEAL/reference/allelic_counts50K.tsv"; do
   [ -e "$f" ] || echo "WARNING: missing input (preview may fail): $f"
 done
@@ -60,6 +61,7 @@ nextflow run "$PROJ/main.nf" \
   -preview \
   -with-dag "$DAG_DIR/dag_${STAMP}.svg" \
   2>&1
+rc=$?                                   # preserve Nextflow's exit so Slurm sees failures
 
 echo ""
 echo "--- expected processes ---"
@@ -68,4 +70,5 @@ for proc in INDEX_REF ALIGN GENOTYPE QC_INTROGRESSION BUILD_HD BINHMM_DOSAGE; do
 done
 echo ""
 echo "DAG written: $DAG_DIR/dag_${STAMP}.svg"
-echo "Finished: $(date)"
+echo "Finished: $(date) (exit $rc)"
+exit $rc

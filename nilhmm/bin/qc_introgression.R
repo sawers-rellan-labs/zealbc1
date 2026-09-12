@@ -26,10 +26,14 @@ max_hom <- as.numeric(getopt("--max-hom-teo", "0.05"))
 min_het <- as.integer(getopt("--min-het", "50"))
 stopifnot(!is.null(vcf), !is.null(sample))
 
-# system2 with a vector runs WITHOUT a shell, so pass the path bare (no shQuote) and a real newline.
+# system2 with a vector runs WITHOUT a shell, so pass the path bare (NOT shQuote'd — that would pass
+# literal quotes and break the open). A genuine bcftools failure sets a non-zero "status" attr; treat
+# that as a hard error (don't silently report all-zero QC). An empty result with status 0 = empty VCF.
 gts <- tryCatch(system2("bcftools", c("query", "-f", "%GT\n", vcf), stdout = TRUE),
-                error = function(e) character(0))
-if (!length(gts)) log_warn("[qc] bcftools query returned no rows for %s (empty VCF or read error)", vcf)
+                error = function(e) structure(character(0), status = 1L))
+st <- attr(gts, "status")
+if (!is.null(st) && st != 0L) stop(sprintf("qc_introgression: bcftools query failed for %s (status %d)", sample, st))
+if (!length(gts)) log_warn("[qc] bcftools query returned no rows for %s (empty VCF)", vcf)
 has0 <- grepl("0", gts, fixed = TRUE); has1 <- grepl("1", gts, fixed = TRUE); hasM <- grepl(".", gts, fixed = TRUE)
 n_het    <- sum(has0 & has1 & !hasM)
 n_homalt <- sum(has1 & !has0 & !hasM)

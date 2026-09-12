@@ -32,5 +32,7 @@ echo "Started: $(date)"; nextflow -version 2>&1 | head -3
 
 cd "$STUB_DIR"
 nextflow run "$PROJ/main.nf" -profile stub -stub-run -work-dir "$STUB_DIR/work" 2>&1
+rc=$?                                   # preserve Nextflow's exit so Slurm sees failures
 
-echo "Finished: $(date)"
+echo "Finished: $(date) (exit $rc)"
+exit $rc

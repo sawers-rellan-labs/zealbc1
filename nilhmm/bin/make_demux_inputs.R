@@ -76,6 +76,10 @@ stopifnot(nrow(s) == 384L, uniqueN(s$Sample_Id) == 384L, length(pools) == 32L)
 per_pool <- s[, .N, by = pool]
 if (any(per_pool$N != 12L)) stop("make_demux_inputs: pools without 12 wells: ",
                                  paste(per_pool[N != 12L, pool], collapse = ", "))
+# each pool must use exactly columns 1:12 (a duplicated+omitted column would pass the N==12 check)
+col_ok <- s[, .(ok = identical(sort(unique(column)), 1:12)), by = pool]
+if (any(!col_ok$ok)) stop("make_demux_inputs: pools whose columns are not exactly 1:12: ",
+                          paste(col_ok[ok == FALSE, pool], collapse = ", "))
 
 ## ---- write outputs ------------------------------------------------------
 # bc.fasta (records named by column; sequences plain, cutadapt anchors via ^file:)
