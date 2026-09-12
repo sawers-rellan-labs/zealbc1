@@ -6,7 +6,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=32G
+#SBATCH --mem=128G                     # proali OOM'd at 32G on chr10; go generous to get a working run + real peak
 #SBATCH --time=02:00:00
 #SBATCH --array=0-1                     # 0=Zx-TIL18 (collinear), 1=Zd-Gigi (divergent)
 #SBATCH --output=%x_%A_%a.out
