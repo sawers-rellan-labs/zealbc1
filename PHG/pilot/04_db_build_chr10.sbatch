@@ -36,10 +36,12 @@ mkdir -p "$PILOT" "$ASM"
 
 echo "[04] phg $("$PHG" --version 2>&1 | head -1)"
 
-echo "[04] keyfile (Fasta<TAB>SampleName)"
+echo "[04] clean prior pilot build (my own scratch outputs) for idempotent rebuild"
+rm -rf "$DB" "$ASM"; mkdir -p "$ASM"
+
+echo "[04] keyfile (header-less: <fasta><TAB><SampleName>)"
 KEY="$PILOT/founder.key"
-printf "Fasta\tSampleName\n" > "$KEY"
-printf "%s\tTIL18\n" "$PILOT/Zx-TIL18-REFERENCE-PanAnd-1.0_chr10.fa" >> "$KEY"
+printf "%s\tTIL18\n" "$PILOT/Zx-TIL18-REFERENCE-PanAnd-1.0_chr10.fa" > "$KEY"
 printf "%s\tGigi\n"  "$PILOT/Zd-Gigi-REFERENCE-PanAnd-1.0_chr10.fa"  >> "$KEY"
 printf "%s\tB73\n"   "$REF" >> "$KEY"
 cat "$KEY"
