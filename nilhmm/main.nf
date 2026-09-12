@@ -30,9 +30,12 @@ workflow {
     // index the reference once (minibwa + faidx); ALIGN gates on it. .first() = broadcast value.
     ref_ready = INDEX_REF(Channel.value(params.reference)).ready.first()
 
-    // per-pool inputs: (pool, [R1 lanes], [R2 lanes])
+    // per-pool inputs: (pool, [R1 lanes], [R2 lanes]). --pools '1B,2C' restricts pools (Gate 1/testing).
+    def keep_pools = (params.pools ?: '').toString().trim()
+    def pool_set   = keep_pools ? (keep_pools.split(/[,\s]+/) as List) : null
     libs = Channel.fromPath(params.bc1_libraries)
         .splitCsv(header: true)
+        .filter { r -> pool_set == null || pool_set.contains(r.pool) }
         .map { r -> tuple(r.pool,
                           files("${params.bc1_rawdata}/${r.raw_dir}/*_1.fq.gz"),
                           files("${params.bc1_rawdata}/${r.raw_dir}/*_2.fq.gz")) }

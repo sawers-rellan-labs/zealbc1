@@ -26,8 +26,17 @@ process DEMUX {
     // Sample_Id via the well map (this pool only).
     """
     set -euo pipefail
-    cat \$(ls *_L*_1.fq.gz | sort) > R1.fq.gz
-    cat \$(ls *_L*_2.fq.gz | sort) > R2.fq.gz
+    R1LANES=\$(ls *_L*_1.fq.gz | sort); R2LANES=\$(ls *_L*_2.fq.gz | sort)
+    if [ "${params.subsample}" -gt 0 ]; then
+        # Gate 1: take the first N read pairs cheaply (head stops the stream early).
+        set +o pipefail
+        zcat \$R1LANES | head -n \$(( ${params.subsample} * 4 )) | gzip > R1.fq.gz
+        zcat \$R2LANES | head -n \$(( ${params.subsample} * 4 )) | gzip > R2.fq.gz
+        set -o pipefail
+    else
+        cat \$R1LANES > R1.fq.gz
+        cat \$R2LANES > R2.fq.gz
+    fi
 
     cutadapt -j ${task.cpus} -Z -e 0 --no-indels --pair-adapters --action=trim \
       -g ^file:${bc_fasta} -G ^file:${bc_fasta} \
