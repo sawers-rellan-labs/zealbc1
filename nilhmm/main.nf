@@ -34,8 +34,8 @@ workflow {
     libs = Channel.fromPath(params.bc1_libraries)
         .splitCsv(header: true)
         .map { r -> tuple(r.pool,
-                          file("${params.bc1_rawdata}/${r.raw_dir}/*_1.fq.gz"),
-                          file("${params.bc1_rawdata}/${r.raw_dir}/*_2.fq.gz")) }
+                          files("${params.bc1_rawdata}/${r.raw_dir}/*_1.fq.gz"),
+                          files("${params.bc1_rawdata}/${r.raw_dir}/*_2.fq.gz")) }
 
     DEMUX(libs, bc_fasta, well_map)
 
