@@ -29,7 +29,8 @@ stopifnot(!is.null(vcf), !is.null(sample))
 # system2 with a vector runs WITHOUT a shell, so pass the path bare (NOT shQuote'd — that would pass
 # literal quotes and break the open). A genuine bcftools failure sets a non-zero "status" attr; treat
 # that as a hard error (don't silently report all-zero QC). An empty result with status 0 = empty VCF.
-gts <- tryCatch(system2("bcftools", c("query", "-f", "%GT\n", vcf), stdout = TRUE),
+# GT is a FORMAT field -> must be bracketed as [%GT]; bare %GT makes bcftools look for INFO/GT and error.
+gts <- tryCatch(system2("bcftools", c("query", "-f", "[%GT]\n", vcf), stdout = TRUE),
                 error = function(e) structure(character(0), status = 1L))
 st <- attr(gts, "status")
 if (!is.null(st) && st != 0L) stop(sprintf("qc_introgression: bcftools query failed for %s (status %d)", sample, st))
