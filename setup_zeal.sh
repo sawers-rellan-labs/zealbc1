@@ -32,8 +32,16 @@ ln -sfn ../../bzeaseq/50K/results/joint/bzea_50K_cohort_ref_metadata.csv   "$Z/r
 ln -sfn ../../bzeaseq/50K/allelic_counts50K.tsv             "$Z/reference/allelic_counts50K.tsv"
 ln -sfn ../../ref/Zm-B73-REFERENCE-NAM-5.0.fa              "$Z/reference/B73.fa"
 ln -sfn ../../ref/Zm-B73-REFERENCE-NAM-5.0.fa.fai          "$Z/reference/B73.fa.fai"   # already exists in ref/
-# INDEX_REF writes the minibwa .l2b/.mbw next to $Z/reference/B73.fa (stays in ZEAL, not the shared ref dir);
-# the .fai is symlinked above so faidx is skipped.
+
+# Reuse the minibwa index already built for the identical B73 v5 fasta (cassini; .fai byte-identical),
+# named to our convention so `minibwa map B73.fa` finds it and INDEX_REF's guard skips the ~1-2h build.
+# Copied (not symlinked) so ZEAL owns it. Falls back to INDEX_REF building it if the source is gone.
+CIDX=/rsstu/users/r/rrellan/tlaloc/cassini/data/ref     # tlaloc is a sibling of BZea
+if [ -s "$CIDX/b73.mbw" ]; then
+    cp -n "$CIDX/b73.mbw" "$Z/reference/B73.fa.mbw"
+    cp -n "$CIDX/b73.l2b" "$Z/reference/B73.fa.l2b"
+fi
+# else: INDEX_REF builds the minibwa .l2b/.mbw next to $Z/reference/B73.fa on first run.
 
 echo "ZEAL tree ready at $Z"; ls -l "$Z"
 echo "--- reference/ ---"; ls -l "$Z/reference"
