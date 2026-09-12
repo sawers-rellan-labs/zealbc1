@@ -31,12 +31,13 @@ echo "=== nilhmm Gate 1 (pool 1B, subsampled) ==="
 echo "Started: $(date)"; nextflow -version 2>&1 | head -3
 
 cd "$G1"
+# No -resume: Gate 1 is a fresh benchmark run (cached tasks report stale/zero metrics), and the
+# reference index isn't part of Nextflow's cache key, so a resume could reuse stale-index CRAMs.
 nextflow run "$PROJ/main.nf" \
   -profile debug \
   --pools 1B \
   --subsample 1000000 \
-  --outdir "$G1" \
-  -resume 2>&1
+  --outdir "$G1" 2>&1
 
 echo "Finished: $(date)"
 echo "--- trace ---"; column -t "$G1/pipeline_info/trace.txt" 2>/dev/null | head -40
