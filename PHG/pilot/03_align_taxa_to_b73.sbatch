@@ -26,7 +26,11 @@ set -eo pipefail                                                   # -e/-o but N
 
 B=/rsstu/users/r/rrellan/BZea
 PILOT="$B/ZEAL/results/phg_pilot/chr10"
-OUT="$PILOT/maf"; mkdir -p "$OUT"
+# W = WFA window width (proali -w); OUTSUB = output subdir. Override via sbatch --export for comparison runs,
+# e.g. unbounded reference: --export=ALL,W=100000,OUTSUB=maf_w100000. Defaults = production (bounded).
+W=${W:-50000}
+OUTSUB=${OUTSUB:-maf}
+OUT="$PILOT/$OUTSUB"; mkdir -p "$OUT"
 REF="$PILOT/B73_chr10.fa"
 GFF="$PILOT/B73_chr10.gff3"
 
@@ -35,7 +39,7 @@ T=${TAXA[$SLURM_ARRAY_TASK_ID]}
 QUERY="$PILOT/${T}_chr10.fa"
 NP=${SLURM_CPUS_PER_TASK:-8}
 
-echo "[03] $(date '+%H:%M:%S') taxon=$T  ref=$REF  query=$QUERY  cpus=$NP  node=$(hostname)"
+echo "[03] $(date '+%H:%M:%S') taxon=$T  ref=$REF  query=$QUERY  cpus=$NP  node=$(hostname)  W=$W  out=$OUT"
 
 cd "$OUT"
 echo "[03] gff2seq (CDS anchors from B73 chr10)"
@@ -52,7 +56,7 @@ echo "[03] anchorwave proali -> MAF"
 anchorwave proali -i "$GFF" -r "$REF" -as "${T}_cds.fa" \
   -a "${T}_query.sam" -ar "${T}_ref.sam" -s "$QUERY" \
   -n "${T}_anchors" -o "${T}_chr10.maf" -f "${T}_chr10.f.maf" \
-  -t "$NP" -R 1 -Q 1 -w 50000
+  -t "$NP" -R 1 -Q 1 -w "$W"
 
 echo "[03] $(date '+%H:%M:%S') DONE $T"
 ls -lh "${T}_chr10.maf" "${T}_chr10.f.maf" 2>/dev/null
