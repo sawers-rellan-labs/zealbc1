@@ -6,11 +6,11 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=140G                     # founder-quality recipe: full -w 100000 -t8 needs -M cap; -M100 peaked ~108G (chr10)
+#SBATCH --mem=128G                     # -M100 peaked 107.8G; 128G = peak + headroom for -M's prediction undershoot, fits 128G nodes
 #SBATCH --time=02:00:00
 #SBATCH --array=0-1                     # 0=Zx-TIL18 (collinear), 1=Zd-Gigi (divergent)
-#SBATCH --output=%x_%A_%a.out
-#SBATCH --error=%x_%A_%a.err
+#SBATCH --output=logs/%x_%A_%a.out
+#SBATCH --error=logs/%x_%A_%a.err
 #
 # PHG chr10 pilot, step 03 (PHG_setup 01_align_taxa_to_b73) — AnchorWave proali, taxon chr10 -> B73 chr10.
 # Produces the taxon->B73 MAF that create-maf-vcf consumes (and, later, the relabeled donor MAFs derive from).

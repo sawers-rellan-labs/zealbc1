@@ -8,8 +8,8 @@
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=8G
 #SBATCH --time=01:00:00
-#SBATCH --output=%x_%j.out
-#SBATCH --error=%x_%j.err
+#SBATCH --output=logs/%x_%j.out
+#SBATCH --error=logs/%x_%j.err
 #
 # PHG chr10 pilot, step 02 — subset B73 + pilot taxa to chr10, subset the GFF.
 # Pilot taxa: Zx-TIL18 (mexicana, collinear) + Zd-Gigi (diploperennis, divergent).

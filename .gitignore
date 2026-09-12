@@ -12,6 +12,15 @@ timeline*.html
 report*.html
 trace*.txt
 
+# Slurm job logs + conda/phg env-build byproducts (were cluttering the worktree root)
+*.out
+*.err
+*.log
+phg_environment.yml
+phg_tiledb_environment.yml
+logs/*
+!logs/.gitkeep
+
 # OS / editor
 .DS_Store
 *.swp

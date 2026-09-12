@@ -8,8 +8,8 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
 #SBATCH --time=02:00:00
-#SBATCH --output=%x_%j.out
-#SBATCH --error=%x_%j.err
+#SBATCH --output=logs/%x_%j.out
+#SBATCH --error=logs/%x_%j.err
 #
 # PHG chr10 pilot, step 04 — build the DB up to the reference haplotypes (stage 1 of the DB build):
 #   initdb -> prepare-assemblies -> agc-compress -> create-ranges -> create-ref-vcf

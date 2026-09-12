@@ -8,8 +8,8 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
 #SBATCH --time=02:00:00
-#SBATCH --output=%x_%j.out
-#SBATCH --error=%x_%j.err
+#SBATCH --output=logs/%x_%j.out
+#SBATCH --error=logs/%x_%j.err
 #
 # PHG chr10 pilot, step 05 — DB build stage 2: create-maf-vcf (full-w founder MAFs) -> load-vcf.
 # Adds TIL18 + Gigi taxon-founder haplotypes to the chr10 graph built by 04. Run after 04 succeeds.
