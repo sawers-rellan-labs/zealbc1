@@ -21,7 +21,7 @@
 
 source ~/.bashrc
 source "$(conda info --base)/etc/profile.d/conda.sh"
-conda activate /rsstu/users/r/rrellan/BZea/ZEAL/envs/phgv2-conda   # anchorwave wrapper needs its bin on PATH
+conda activate /rsstu/users/r/rrellan/BZea/ZEAL/envs/anchorwave13  # anchorwave 1.3.1 (+minimap2 2.31); has -M
 set -eo pipefail                                                   # -e/-o but NOT -u
 
 B=/rsstu/users/r/rrellan/BZea
@@ -30,6 +30,7 @@ PILOT="$B/ZEAL/results/phg_pilot/chr10"
 # e.g. unbounded reference: --export=ALL,W=100000,OUTSUB=maf_w100000. Defaults = production (bounded).
 W=${W:-50000}
 OUTSUB=${OUTSUB:-maf}
+M=${M:-}                # optional: anchorwave 1.3.1 -M = predictive max total memory (GiB). Empty = unset.
 OUT="$PILOT/$OUTSUB"; mkdir -p "$OUT"
 REF="$PILOT/B73_chr10.fa"
 GFF="$PILOT/B73_chr10.gff3"
@@ -39,7 +40,7 @@ T=${TAXA[$SLURM_ARRAY_TASK_ID]}
 QUERY="$PILOT/${T}_chr10.fa"
 NP=${SLURM_CPUS_PER_TASK:-8}
 
-echo "[03] $(date '+%H:%M:%S') taxon=$T  ref=$REF  query=$QUERY  cpus=$NP  node=$(hostname)  W=$W  out=$OUT"
+echo "[03] $(date '+%H:%M:%S') taxon=$T  cpus=$NP  node=$(hostname)  W=$W  M=${M:-none}  out=$OUT"
 
 cd "$OUT"
 echo "[03] gff2seq (CDS anchors from B73 chr10)"
@@ -56,7 +57,7 @@ echo "[03] anchorwave proali -> MAF"
 anchorwave proali -i "$GFF" -r "$REF" -as "${T}_cds.fa" \
   -a "${T}_query.sam" -ar "${T}_ref.sam" -s "$QUERY" \
   -n "${T}_anchors" -o "${T}_chr10.maf" -f "${T}_chr10.f.maf" \
-  -t "$NP" -R 1 -Q 1 -w "$W"
+  -t "$NP" -R 1 -Q 1 -w "$W" ${M:+-M "$M"}
 
 echo "[03] $(date '+%H:%M:%S') DONE $T"
 ls -lh "${T}_chr10.maf" "${T}_chr10.f.maf" 2>/dev/null
