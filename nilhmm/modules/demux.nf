@@ -39,22 +39,23 @@ process DEMUX {
     if [ "${params.subsample}" -gt 0 ]; then
         # Gate 1: first N read pairs to small files (head stops the stream early).
         set +o pipefail
-        zcat \$R1LANES | head -n \$(( ${params.subsample} * 4 )) | gzip > R1.sub.fq.gz
-        zcat \$R2LANES | head -n \$(( ${params.subsample} * 4 )) | gzip > R2.sub.fq.gz
+        zcat \$R1LANES | head -n \$(( ${params.subsample} * 4 )) | gzip > R1.fq.gz
+        zcat \$R2LANES | head -n \$(( ${params.subsample} * 4 )) | gzip > R2.fq.gz
         set -o pipefail
-        \$CA R1.sub.fq.gz R2.sub.fq.gz
     else
-        # STREAM the lanes straight into cutadapt via process substitution -- no ~230 GB concatenated
-        # intermediate written to (and re-read from) the contended /rsstu partition. Measured on pool
-        # 1B: the old cat-first path did ~490 GB read + ~494 GB write; this removes ~half of both.
-        \$CA <(zcat \$R1LANES) <(zcat \$R2LANES)
+        # Concatenate the lanes, then let cutadapt (-j threads) decompress+demux. This is the proven
+        # path: streaming via <(zcat ...) serialized decompression into one thread and ran SLOWER
+        # despite fewer bytes, so we keep the concat.
+        cat \$R1LANES > R1.fq.gz
+        cat \$R2LANES > R2.fq.gz
     fi
+    \$CA R1.fq.gz R2.fq.gz
 
     awk -F, -v p="${pool}" 'NR>1 && \$1==p {print \$2"\\t"\$4}' ${well_map} | while IFS=\$'\\t' read -r col sid; do
       mv "${pool}_\${col}_R1.fq.gz" "\${sid}_R1.fq.gz"
       mv "${pool}_\${col}_R2.fq.gz" "\${sid}_R2.fq.gz"
     done
-    rm -f R1.sub.fq.gz R2.sub.fq.gz    # subsample temp (streaming path writes no concat)
+    rm -f R1.fq.gz R2.fq.gz
     """
 
     stub:
