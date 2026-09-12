@@ -73,6 +73,18 @@ are in `nilhmm/docs/testing_benchmarking.md`.
 4. Re-run with **`-resume <session-id>`** (explicit id — a bare `-resume` can attach to an empty
    preview/stub session).
 
+## Killing a run safely (avoid orphans; NEVER a name glob)
+With the slurm executor Nextflow submits **each step as its own Slurm job** (`nf-DEMUX`, `nf-ALIGN`, …)
+alongside the head. `scancel <head>` kills only the orchestrator — the children keep running as orphans
+(this already burned ~2 h once). To stop a run:
+1. **Graceful (preferred):** `scancel --signal=INT --batch <head>` — Nextflow traps it and cancels
+   **its own** child jobs (it knows their exact IDs), scoped to that run only.
+2. **If children orphan anyway:** cancel them by their **exact job IDs**, read from *that run's* log
+   (`grep -oE "Submitted process.*jobId: [0-9]+" nilhmm_gate2_<ID>.out` / `.nextflow.log`), then
+   `scancel <those IDs>`.
+3. **NEVER `scancel` by name (`nf-*`)** — both agents (nilhmm + PHG) run Nextflow, so a name glob would
+   kill the other agent's jobs too. Always concrete job IDs.
+
 ## Watching + safety
 - Watch live: `squeue -u frodrig4`, `.nextflow.log`, and the read-only laptop mount (outputs, DAG SVG).
 - Guardrails: every change is a git diff (revertible); never force-push; never rewrite `main` without
