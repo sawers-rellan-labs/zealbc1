@@ -34,10 +34,9 @@ n_miss   <- sum(hasM)
 denom <- n_het + n_homalt
 hom_teo_frac <- if (denom > 0) n_homalt / denom else NA_real_
 pass <- isTRUE(!is.na(hom_teo_frac) && hom_teo_frac < max_hom && n_het >= min_het)
-note <- if (n_het < min_het) "few_het_sites"
-        else if (is.na(hom_teo_frac)) "no_called_alt"
-        else if (hom_teo_frac >= max_hom) "high_hom_teo(contamination?)"
-        else "ok"
+note <- if (n_het < min_het) "few_het_sites" else
+        if (is.na(hom_teo_frac)) "no_called_alt" else
+        if (hom_teo_frac >= max_hom) "high_hom_teo(contamination?)" else "ok"
 
 fwrite(data.table(sample, donor, taxon, pass, n_het, n_homalt, n_homref, n_miss,
                   hom_teo_frac = round(hom_teo_frac, 4), note),
