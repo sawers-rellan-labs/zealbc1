@@ -14,6 +14,8 @@
 # Requires bcftools + R data.table on PATH (rstats env).
 
 suppressMessages(library(data.table))
+.bin <- dirname(sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE)[1]))
+source(file.path(.bin, "logging.R"))
 
 ## ---- args ---------------------------------------------------------------
 args <- commandArgs(trailingOnly = TRUE)
@@ -38,6 +40,8 @@ if (length(qcs) > 0 && all(nzchar(qcs))) {
 }
 keep_vcfs <- vcfs[pass]
 if (length(keep_vcfs) == 0) stop(sprintf("build_hd: no QC-passing BC1 plants for donor %s", donor))
+log_info("[build_hd] donor %s | %d plant(s), %d QC-pass | reading het sites...",
+         donor, length(vcfs), length(keep_vcfs))
 
 ## ---- HET sites only (the only possible teosinte-carrier genotype in a BC1) ----
 # biallelic sites: het = GT contains BOTH a '0' and a '1' (0/1, 1/0, 0|1, 1|0).
@@ -69,5 +73,5 @@ mask[, donor_allele := "ALT"]
 
 ## ---- write --------------------------------------------------------------
 fwrite(mask, out, sep = "\t", compress = "gzip")
-message(sprintf("[%s] plants(pass)=%d  het-sites=%d  union=%d  mask=%d",
-                donor, length(keep_vcfs), nrow(cand), nrow(u), nrow(mask)))
+log_info("[build_hd] %s done | plants(pass)=%d het-sites=%d union=%d mask=%d -> %s",
+         donor, length(keep_vcfs), nrow(cand), nrow(u), nrow(mask), out)

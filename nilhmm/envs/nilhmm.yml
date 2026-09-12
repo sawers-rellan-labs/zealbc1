@@ -15,6 +15,7 @@ dependencies:
   - r-optparse
   - r-ggplot2
   - r-jsonlite
+  - r-logger        # lab R logging convention (timestamped log_info + ETA idiom; see bin/logging.R)
   - r-devtools
   - r-remotes
   - r-rcpp

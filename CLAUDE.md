@@ -19,6 +19,23 @@ Write plans, design notes, and session handovers to the `agent/` folder for trac
 working context and reference clones, not code to execute. Move code you intend to run out of
 `agent/` into the pipeline tree.
 
+## R script conventions
+
+Log with the **`logger`** package (lab convention), not base `message()`/`cat`. Every R script sources
+the shared setup and tags its messages:
+```r
+.bin <- dirname(sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE)[1]))
+source(file.path(.bin, "logging.R"))     # nilhmm/bin/logging.R: timestamped, sprintf-style, to stderr
+log_info("[build_hd] donor %s | %d plants", donor, n)
+```
+Use `log_info/log_warn/log_error` with `%s`/`%d`/`%.1f` (the formatter is sprintf — no paste/sprintf
+inside). For any loop, log a running **ETA** so >10-min tasks show progress in `.command.err`:
+```r
+el <- as.numeric(difftime(Sys.time(), t0, units = "mins"))   # t0 set before the loop
+log_info(">>> %d/%d done | elapsed %.1f min | ETA ~%.1f min remaining", i, N, el, (el/i)*(N-i))
+```
+`logger` is in the nilhmm conda env. (If R conventions grow beyond this, promote to an `r-conventions` skill.)
+
 ## Hazel debug loop
 
 Never run full-scale before a single unit has gone end to end. The full loop — branch model, how code

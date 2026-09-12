@@ -29,6 +29,9 @@ suppressPackageStartupMessages({
   library(data.table)
   library(nilHMM)
 })
+.bin <- dirname(sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE)[1]))
+source(file.path(.bin, "logging.R"))
+.t0 <- Sys.time(); .el <- function() as.numeric(difftime(Sys.time(), .t0, units = "mins"))
 
 ## ---- args ---------------------------------------------------------------
 args <- commandArgs(trailingOnly = TRUE)
@@ -66,7 +69,10 @@ if (length(miss)) message(sprintf("binhmm_dosage: %d donor(s) have no mask, thei
                                    length(miss), paste(head(miss, 10), collapse = ", ")))
 
 ## ---- read the merged counts once (only the 5 columns we need) -----------
+log_info("[binhmm] %d mask donor(s), %d mapped line(s) | reading merged counts %s ...",
+         length(have_masks), nrow(smap), basename(counts_f))
 cnt <- fread(counts_f, select = c("SAMPLE","CONTIG","POSITION","REF_COUNT","ALT_COUNT"))
+log_info("[binhmm] counts read: %d rows | elapsed %.1f min", nrow(cnt), .el())
 setnames(cnt, c("name","chr","pos","n_ref","n_alt"))
 cnt[, `:=`(name = as.character(name), chr = as.character(chr),
            pos = as.integer(pos), n_ref = as.integer(n_ref), n_alt = as.integer(n_alt))]
@@ -82,8 +88,11 @@ setorder(obs, name, chr, pos)
 ## ---- one binned-Gaussian-HMM call over the whole cohort -----------------
 # `data` carries name (per-sample dispatch) + donor (binhmm's donor label) + n_ref/n_alt.
 data <- obs[, .(name, chr, pos, n_ref, n_alt, donor)]
+log_info("[binhmm] %d line(s) x mask sites = %d obs rows | calling binhmm (design %s, bin %s bp)...",
+         uniqueN(obs$name), nrow(obs), design, format(bin_size, scientific = FALSE))
 calls <- call_ancestry(as.data.frame(data), caller = "binhmm", design = design, bin_size = bin_size)
 setDT(calls)
+log_info("[binhmm] call_ancestry done: %d segments | elapsed %.1f min", nrow(calls), .el())
 
 ## ---- write one combined table -------------------------------------------
 fwrite(calls, out, sep = "\t", compress = "gzip")
