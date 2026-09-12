@@ -6,7 +6,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=200G                     # divergent taxa (Gigi) OOM'd unbounded even at 128G; bounded -w + headroom
+#SBATCH --mem=48G                      # measured: bounded (-w 50000) chr10 proali peaks ~33-35G; 48G = peak + headroom
 #SBATCH --time=02:00:00
 #SBATCH --array=0-1                     # 0=Zx-TIL18 (collinear), 1=Zd-Gigi (divergent)
 #SBATCH --output=%x_%A_%a.out
