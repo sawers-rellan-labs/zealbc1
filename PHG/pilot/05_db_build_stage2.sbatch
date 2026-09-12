@@ -37,7 +37,7 @@ ln -sf "$PILOT/maf_M100/Zd-Gigi-REFERENCE-PanAnd-1.0_chr10.maf"  "$MD/Gigi.maf" 
 ls -lL "$MD"
 
 echo "[05] create-maf-vcf"
-OUTV="$PILOT/vcf_files"; rm -rf "$OUTV"
+OUTV="$PILOT/vcf_files"; rm -rf "$OUTV"; mkdir -p "$OUTV"   # create-maf-vcf writes into -o but doesn't mkdir it
 "$PHG" create-maf-vcf --db-path "$DB" --bed "$BED" --reference-file "$REF" --maf-dir "$MD" -o "$OUTV"
 echo "[05] created hvcfs:"; ls -lh "$OUTV"/*.h.vcf.gz 2>/dev/null
 
