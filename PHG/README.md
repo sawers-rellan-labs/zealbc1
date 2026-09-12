@@ -1,10 +1,10 @@
-# PHG — Phase 2 (H_d estimation → PHG setup)
+# PHG — Phase 2 (Hd_estimation → PHG_setup)
 
-Two stages joined by a file contract (FASTAs + MAFs + keyfile): **H_d estimation** (per-donor founder
-production — a **Nextflow** fan-out) feeds **PHG setup** (the `phg` CLI build). PHG v2's own build/impute is
+Two stages joined by a file contract (FASTAs + MAFs + keyfile): **Hd_estimation** (per-donor founder
+production — a **Nextflow** fan-out) feeds **PHG_setup** (the `phg` CLI build). PHG v2's own build/impute is
 a **direct CLI** (`phg <subcommand>` in the `phg setup-environment` conda env), not a Nextflow workflow — the
-docs run every step as shell commands and use SLURM arrays only for the heavy alignments. So **PHG setup =
-shell/sbatch calling `phg`**; the **H_d estimation** that produces the donor founders is the per-donor
+docs run every step as shell commands and use SLURM arrays only for the heavy alignments. So **PHG_setup =
+shell/sbatch calling `phg`**; the **Hd_estimation** that produces the donor founders is the per-donor
 fan-out where Nextflow earns its keep.
 
 Source: PHG v2 docs — Building and loading, Imputation, SLURM Usage (`phg.maizegenetics.net`).
@@ -27,7 +27,7 @@ phg setup-environment
 | 7 | `phg create-maf-vcf --db-path vcf_dbs --bed ref_ranges.bed --reference-file Ref.fa --maf-dir alignment_files -o vcf_files` | agc/bcftools | med–heavy |
 | 8 | `phg load-vcf --vcf-dir vcf_files --db-path vcf_dbs --threads 10` | TileDB | med |
 
-**Founders here** = B73 (Ref) + 5 per-taxon reference founders + 95 per-donor captured-haplotype (H_d) consensus founders. See "Founder design (DECIDED)" below. Note: step 4 `align-assemblies` is replaced — we run AnchorWave ourselves for the 5 taxa and add donors *transitively* (no per-donor alignment); step 7 `create-maf-vcf --maf-dir` consumes those MAFs.
+**Founders here** = B73 (Ref) + 5 per-taxon reference founders + 95 per-donor captured-haplotype (Hd) consensus founders. See "Founder design (DECIDED)" below. Note: step 4 `align-assemblies` is replaced — we run AnchorWave ourselves for the 5 taxa and add donors *transitively* (no per-donor alignment); step 7 `create-maf-vcf --maf-dir` consumes those MAFs.
 
 ## Imputation phase — order (from docs)
 | # | command | in → out |
@@ -42,7 +42,7 @@ Inputs = BC2S3 **skim FASTQs** (via keyfile). Output = imputed hVCF → VCF = se
 
 ## Founder design (DECIDED)
 
-**Founder set:** B73 (ref) + **5 per-taxon reference founders** + **95 per-donor captured-haplotype (H_d)
+**Founder set:** B73 (ref) + **5 per-taxon reference founders** + **95 per-donor captured-haplotype (Hd)
 consensus founders**. Pedigree (`meta/`): 82 accessions → 95 donor plants (= founders) → 95 ears (1/donor)
 → 384 BC1-plant samples pooled into the ears.
 
@@ -51,7 +51,7 @@ before AnchorWave and before mapping; subset the B73 GFF to chr1–10. (`proali`
 massive compute and they can't be placed on B73 ranges anyway.)
 
 **Donor founders enter transitively — NOT by per-donor AnchorWave:**
-- Each donor's H_d = a **SNP-only consensus on its taxon reference** (`bcftools call --ploidy 1`; the ear is
+- Each donor's Hd = a **SNP-only consensus on its taxon reference** (`bcftools call --ploidy 1`; the ear is
   a pool but effectively haploid — one captured F1 haplotype. NOT DeepVariant: its diploid CNN can't model a
   pool).
 - `create-maf-vcf` fetches haplotype sequence from the AGC archive **by MAF coordinate** (not from the MAF
@@ -64,10 +64,10 @@ massive compute and they can't be placed on B73 ranges anyway.)
 Full reasoning + the chr10 pilot: `../agent/PHG_PILOT_chr10.md`.
 
 ## Execution structure (two stages)
-- **Stage: H_d estimation** — a **Nextflow** per-donor fan-out (95 donors): pool ear reads → `minibwa` →
-  taxon ref → `bcftools call --ploidy 1` (SNP-only) → `bcftools consensus` = the donor H_d FASTA.
+- **Stage: Hd_estimation** — a **Nextflow** per-donor fan-out (95 donors): pool ear reads → `minibwa` →
+  taxon ref → `bcftools call --ploidy 1` (SNP-only) → `bcftools consensus` = the donor Hd FASTA.
   Reproducible/parallel/resumable, same shape as `nilhmm/`. *(the part that IS Nextflow)*
-- **Stage: PHG setup** — the sequential `phg` CLI: `01_align_taxa_to_b73` (AnchorWave `proali`, 5) →
+- **Stage: PHG_setup** — the sequential `phg` CLI: `01_align_taxa_to_b73` (AnchorWave `proali`, 5) →
   `02_relabel_donor_mafs` (transitive) → `initdb → prepare-assemblies → agc-compress → create-ranges →
   create-ref-vcf → create-maf-vcf --maf-dir → load-vcf`. Shell/sbatch (wrapping in Nextflow buys little —
   sequential TileDB ops). *(the part that is NOT Nextflow)*
@@ -76,7 +76,7 @@ Full reasoning + the chr10 pilot: `../agent/PHG_PILOT_chr10.md`.
 
 ## TODO before building
 - confirm the 5 taxon reference FASTAs (chr1–10) + a B73 gene GFF are on hazel
-- build the **H_d estimation** Nextflow pipeline (per-donor SNP-only consensus)
-- build the **PHG setup** sbatch (5 taxon `proali` + relabel MAFs + the `phg` CLI chain)
+- build the **Hd_estimation** Nextflow pipeline (per-donor SNP-only consensus)
+- build the **PHG_setup** sbatch (5 taxon `proali` + relabel MAFs + the `phg` CLI chain)
 - run the chr10 pilot (`../agent/PHG_PILOT_chr10.md`) → validate transitive + record resources
 - `create-ranges` needs a B73 v5 gene GFF (chr1–10)
