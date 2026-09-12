@@ -12,6 +12,10 @@ timeline*.html
 report*.html
 trace*.txt
 
+# Slurm job logs (head-job stdout/err; the wrappers route these to ZEAL/results/log)
+*.out
+*.err
+
 # OS / editor
 .DS_Store
 *.swp

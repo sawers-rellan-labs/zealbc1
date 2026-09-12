@@ -13,12 +13,16 @@ specifics that make it work on this cluster + filesystem. Gate-ladder detail and
 are in `nilhmm/docs/testing_benchmarking.md`.
 
 ## Branch model
-- All debugging happens on the **`debug` branch**. `main` stays clean.
-- When a step is green, squash `debug` → **one commit on `main`**.
+- The nilhmm work happens on the **`nilhmm-debug` branch** (a separate agent owns `PHG/` on its own
+  branch — stay in the `nilhmm/` lane, never touch `PHG/`). `main` stays clean.
+- When a step is green, squash `nilhmm-debug` → **one commit on `main`**.
+- Stage files **explicitly** (`git add nilhmm/… meta/… CLAUDE.md .claude/skills/…`), never `git add -A`
+  or `git commit -a`, so another agent's uncommitted changes are never swept in.
 
 ## How code moves (laptop → hazel), and why it's safe
 - Edits happen **locally** (the file tools edit the laptop repo; there are no clean by-hand edits on hazel).
-- `git commit` → `git push origin debug` → `ssh hazel 'cd ZEAL/code && git pull'`.
+- `git commit` → `git push origin nilhmm-debug` → `ssh hazel 'cd ZEAL/code && git pull'` (but NOT while a
+  run is active — pulling changed `bin/` scripts mid-run corrupts staged tasks; wait for the job to finish).
 - **git is the only transfer.** It is byte-faithful (LF preserved, `.DS_Store` ignored), so it avoids
   the mac-format corruption that rsync/scp/terminal-paste cause. No rsync, no hand edits on hazel.
 
