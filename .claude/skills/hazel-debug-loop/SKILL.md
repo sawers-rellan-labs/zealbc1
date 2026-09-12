@@ -30,8 +30,15 @@ are in `nilhmm/docs/testing_benchmarking.md`.
   back 644), so never depend on it. Every module follows this.
 
 ## How commands run (login-node policy)
+- **Conda envs (and any downloads) are prebuilt ONCE ON THE LOGIN NODE** — compute nodes have no
+  internet, so Nextflow must NOT build an env from a yml at task time (it hangs on CondaHTTPError and
+  fails). Every `withLabel` points at a prebuilt prefix (e.g. `/share/maize/frodrig4/conda/env/{assembly,nilhmm,nextflow}`);
+  rebuild on the login node when a recipe changes:
+  `conda env create -p <prefix> -f envs/<x>.yml`. `conda.enabled` is set per-profile (on for slurm/local,
+  off for stub), never globally.
 - Each hazel action is a **discrete, non-interactive** `ssh hazel '<cmd>'`. No shell state persists
-  between calls, so every command self-contains its `cd` and `conda activate`.
+  between calls, so every command self-contains its `cd` and `conda activate`. Avoid `set -u` in job
+  wrappers (`source ~/.bashrc` trips on unbound `$PS1`). Keep `(`parens`)` out of remote `echo`s.
 - **Only trivial commands run over ssh directly**: `git pull`, `squeue`, `scancel`, `cat`/`tail` logs,
   `seff`, `sacct`, `ls`.
 - **Everything that computes goes through Slurm on the debug queue** = `--partition=compute_partners
