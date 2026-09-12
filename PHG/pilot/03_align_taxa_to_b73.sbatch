@@ -6,7 +6,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=48G                      # measured: bounded (-w 50000) chr10 proali peaks ~33-35G; 48G = peak + headroom
+#SBATCH --mem=140G                     # founder-quality recipe: full -w 100000 -t8 needs -M cap; -M100 peaked ~108G (chr10)
 #SBATCH --time=02:00:00
 #SBATCH --array=0-1                     # 0=Zx-TIL18 (collinear), 1=Zd-Gigi (divergent)
 #SBATCH --output=%x_%A_%a.out
@@ -28,9 +28,11 @@ B=/rsstu/users/r/rrellan/BZea
 PILOT="$B/ZEAL/results/phg_pilot/chr10"
 # W = WFA window width (proali -w); OUTSUB = output subdir. Override via sbatch --export for comparison runs,
 # e.g. unbounded reference: --export=ALL,W=100000,OUTSUB=maf_w100000. Defaults = production (bounded).
-W=${W:-50000}
+# Founder-quality recipe (only 5 taxon alignments total — donors are transitive, NOT aligned — so we spend
+# for QUALITY, not speed: full -w, all threads, -M to fit memory). Override for a bounded run if ever needed.
+W=${W:-100000}          # full WFA window (best base alignment across long divergent inter-anchor gaps)
 OUTSUB=${OUTSUB:-maf}
-M=${M:-}                # optional: anchorwave 1.3.1 -M = predictive max total memory (GiB). Empty = unset.
+M=${M:-100}             # anchorwave 1.3.1 -M = predictive max memory (GiB); lets full -w -t8 fit (~108G peak, chr10)
 OUT="$PILOT/$OUTSUB"; mkdir -p "$OUT"
 REF="$PILOT/B73_chr10.fa"
 GFF="$PILOT/B73_chr10.gff3"
