@@ -22,8 +22,7 @@ phg setup-environment
 | 7 | `phg create-maf-vcf --db-path vcf_dbs --bed ref_ranges.bed --reference-file Ref.fa --maf-dir alignment_files -o vcf_files` | agc/bcftools | med–heavy |
 | 8 | `phg load-vcf --vcf-dir vcf_files --db-path vcf_dbs --threads 10` | TileDB | med |
 
-**Founders here** = B73 (Ref) + the **5 real teosinte taxon reference genomes** (Zx-TIL18, Zv-TIL11,
-Zd-Gigi, Zl-RIL003, Zh-RIMHU001). See "Founder design (decided)" below — donors do **not** become founders.
+**Founders here** = B73 (Ref) + the per-donor teosinte pseudo-assemblies built in Phase-2 prep (see `../PLAN.md`: `teo_only.bam` → consensus on the taxon backbone).
 
 ## Imputation phase — order (from docs)
 | # | command | in → out |
@@ -36,39 +35,18 @@ Zd-Gigi, Zl-RIL003, Zh-RIMHU001). See "Founder design (decided)" below — donor
 
 Inputs = BC2S3 **skim FASTQs** (via keyfile). Output = imputed hVCF → VCF = segments + dosage. (Run `map-kmers` and `find-paths` separately to keep the read-mapping files.)
 
-## Founder design (decided)
-
-**Structural founders = the 5 real taxon reference genomes; donors enter as variant paths, not founders.**
-
-The reasoning (see `agent/PHG_PILOT_chr10.md` for the full thread):
-
-- The structural feature we must capture is **inter-taxa translocations** (each taxon's multi-Mb
-  rearrangements vs B73). Those are **taxon-level** and are captured by aligning each of the 5 real
-  chromosome-scale taxon assemblies to B73. `genoAli` (chr-to-chr) would *miss* translocations; use
-  **`proali`**, which does the multi-to-multi scan that finds them.
-- **Donor-specific translocations are an accepted rare loss** — a short-read donor pseudo-assembly
-  built on a taxon backbone can't represent them anyway. Donor information that *does* matter is
-  SNP/small-variant level, which needs no assembly alignment.
-- So: **5 AnchorWave `proali` alignments** (taxon → B73), not ~95 per-donor. At 5, the `proali`
-  throughput penalty is irrelevant (5-task array ≈ one align window), so run `proali` on all 5 and
-  guarantee every inter-taxa translocation is caught — no `genoAli` risk needed.
-- The 82 accessions / 95 donor-parents then enter as **variant paths** (Phase-1 H_d / short-read
-  gVCFs) loaded against the 5-founder graph — different donors of a taxon become different *paths*.
-
-**Cost:** 5 × (8 cpu / 128 GB / ~6 h wall) as a SLURM array — see full-genome numbers in
-`agent/PHG_PILOT_chr10.md` (nilhifi 4-genome actuals). The chr10 pilot validates the recipe first.
-Run AnchorWave yourself and **keep the `--maf-dir`** so PHG rebuilds don't re-align.
+## ⚠ The cost that drives the Phase-2 design decision
+`align-assemblies` is **18–27 h per assembly**. Founders = B73 + **per-donor** pseudo-assemblies (~95) ⇒ ~95 heavy AnchorWave alignments (the pseudo-assemblies are taxon-divergent from B73, so each costs ~a full teosinte-vs-B73 alignment). Even parallelized over a SLURM array that's ~2000+ cpu-hours.
+- **Decide the founder set before building:** per-donor (95, donor-specific, expensive) vs per-taxon (5 assemblies, cheap, but loses donor-specificity — different donors of a taxon share one founder). A middle path: per-taxon founders + donor variants loaded as samples.
+- This is the single biggest Phase-2 cost; settle it first.
 
 ## Recommended execution structure (no Nextflow)
-- `phg_align.sbatch` — **run AnchorWave `proali` yourself** as a SLURM array over the 5 taxon genomes
-  (not `phg align-assemblies`); keep the MAFs. Recipe + I/O tuning in `agent/PHG_PILOT_chr10.md`.
-- `phg_build.sbatch` — steps 1–3, 5–8 as one job; step 7 `create-maf-vcf --maf-dir` ingests the MAFs above.
+- `phg_build.sbatch` — steps 1–3, 5–8 as one job; **step 4 (`align-assemblies`) as a separate SLURM array** over the founder list (see PHG "SLURM Usage").
 - `phg_impute.sbatch` — steps 1–5; parallelize `map-kmers`/`find-paths` per-sample as an array.
 - conda `phg` env, account `maize_cpu`, partition `compute` QOS `normal`; DB + work on `/rsstu`.
 
 ## TODO before building
-- ~~finalize founder set~~ **DECIDED: 5 real taxon genomes as founders, donors as variant paths** (above)
-- confirm the 5 taxon reference FASTAs are on hazel (`agent/PHG_PILOT_chr10.md` Step 0)
-- decide how donor variants load as paths (Phase-1 H_d / short-read gVCFs → graph)
-- keyfiles: 5-taxon assembly list (build), read keyfile (impute)
+- finalize founder set (per-donor vs per-taxon) — the cost decision above
+- build the pseudo-assemblies (Phase-2 prep in `../PLAN.md`)
+- keyfiles: assembly list (build), read keyfile (impute)
 - `create-ranges` needs a gene GFF on B73 v5 (the reference ranges)
