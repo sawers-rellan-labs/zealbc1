@@ -4,10 +4,13 @@ process ALIGN {
     publishDir "${params.outdir}/cram", mode: 'copy', pattern: '*.cram*'
 
     cpus   8
-    // OOM auto-escalation (the LSF "increase RAM on retry" idiom): start at 24 GB (covers the ~18.6 GB
-    // peak observed for S_1B_10), and on an OOM-kill Nextflow resubmits the SAME task at 48, then 72 GB
-    // (maxRetries=2 in nextflow.config). Static 16 GB was the bug — retries re-OOM'd at the same request.
-    memory { 24.GB * task.attempt }
+    // Memory = fixed floor (reference index ~5 GB, loaded once) + a VARIABLE part from alignment/chaining
+    // buffers that scales with how hard reads are to align (divergence, multi-mapping), NOT with file size.
+    // So it's neither linear-in-size (reads are streamed) nor flat (S_1B_10 peaked 18.6 GB, S_1B_4 >24 GB
+    // in the same -x adap run) — a floor plus a spiky, content-driven term. BC1 is ~half divergent teosinte,
+    // which inflates that term unevenly across samples. Start 32 GB (above the observed range), escalate to
+    // 64/96 on an OOM-kill for spiky outliers (maxRetries=2). trace.txt gives the real per-sample peaks.
+    memory { 32.GB * task.attempt }
     time   '6h'
 
     input:
