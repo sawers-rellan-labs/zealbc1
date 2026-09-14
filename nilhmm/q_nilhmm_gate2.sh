@@ -34,11 +34,14 @@ cd "$G2"
 # Full pool (no --subsample). -resume so unchanged, already-completed steps (e.g. INDEX_REF, and DEMUX
 # when its code is unchanged) are reused instead of recomputed. The gate2 launch dir only ever holds
 # real gate2 sessions (previews/stubs run isolated elsewhere), so a bare -resume is safe here.
+# -resume target: bare `-resume` reuses the LATEST session, which may be a run that died mid-DEMUX (then
+# DEMUX re-runs, ~1.5 h wasted). Pass NF_RESUME=<sessionId> of a run that COMPLETED DEMUX to reuse it.
+#   sbatch --export=ALL,NF_RESUME=<sessionId> q_nilhmm_gate2.sh   (default: last session, old behavior)
 nextflow run "$PROJ/main.nf" \
   -profile slurm \
   --pools 1B \
   --outdir "$G2" \
-  -resume 2>&1
+  -resume "${NF_RESUME:-last}" 2>&1
 rc=$?                                   # preserve Nextflow's exit so Slurm sees failures
 
 echo "Finished: $(date) (exit $rc)"
