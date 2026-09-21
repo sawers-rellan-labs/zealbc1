@@ -32,7 +32,7 @@ echo "Started: $(date)"; nextflow -version 2>&1 | head -3
 
 cd "$STUB_DIR"
 # ENTRY=<workflow> stub-runs a named entry (e.g. demux_bc2s3_batch2) in its own launch dir; default = main workflow.
-if [ -n "$ENTRY" ]; then STUB_DIR="$STUB_DIR/$ENTRY"; mkdir -p "$STUB_DIR"; cd "$STUB_DIR"; ENTRY_ARG=(-entry "$ENTRY"); else ENTRY_ARG=(); fi
+if [ -n "$ENTRY" ]; then STUB_DIR="$STUB_DIR/$ENTRY"; mkdir -p "$STUB_DIR"; cd "$STUB_DIR"; ENTRY_ARG=(--entry "$ENTRY"); else ENTRY_ARG=(); fi
 nextflow run "$PROJ/main.nf" "${ENTRY_ARG[@]}" -profile stub -stub-run -work-dir "$STUB_DIR/work" 2>&1
 rc=$?                                   # preserve Nextflow's exit so Slurm sees failures
 

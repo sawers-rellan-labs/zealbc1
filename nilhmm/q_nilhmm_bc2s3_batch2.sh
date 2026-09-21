@@ -39,7 +39,7 @@ echo "Started: $(date)"; nextflow -version 2>&1 | head -3
 cd "$RUN"
 if [ -n "$NF_RESUME" ]; then RESUME=(-resume "$NF_RESUME"); else RESUME=(); fi
 nextflow run "$PROJ/main.nf" \
-  -entry demux_bc2s3_batch2 \
+  --entry demux_bc2s3_batch2 \
   -profile debug \
   --samples "$SAMPLES" \
   --outdir "$RUN" \

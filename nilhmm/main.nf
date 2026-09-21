@@ -31,7 +31,8 @@ def flatten_reads(ch) {
 // comma/space list param -> Set, or null (= keep all)
 def keep_set(p) { def k = (p ?: '').toString().trim(); k ? (k.split(/[,\s]+/) as List) : null }
 
-workflow {
+// ---- BC1 mask half + dosage half (the original pipeline) ------------------------------------
+workflow bc1_mask {
 
     // ---- (1) BUILD THE MASK from the BC1 plants -------------------------
     // sample -> donor / taxon from the well map (Sample_Id is the key through the whole pipeline).
@@ -94,7 +95,7 @@ workflow {
 }
 
 // ---- BC2S3 batch 2 (1.2x, row-pooled with the same 12 inline barcodes) ---------------------
-// `nextflow run main.nf -entry demux_bc2s3_batch2`: DEMUX every row library (32 = V21A..V24H), then
+// `nextflow run main.nf --entry demux_bc2s3_batch2`: DEMUX every row library (32 = V21A..V24H), then
 // ALIGN + MOSDEPTH only the samples in --samples (comma list of Sample_Id = P<Plot_id>; '' = all 384).
 // Reuses DEMUX/ALIGN/MOSDEPTH unchanged: the batch-2 well map has the same first four columns
 // (pool,column,barcode,Sample_Id) + taxon, so DEMUX's rename and demux_qc.R work as for BC1.
@@ -124,4 +125,15 @@ workflow demux_bc2s3_batch2 {
 
     DEMUX_QC(DEMUX.out.json.collect(), well_map)
     MULTIQC(MOSDEPTH.out.mix(DEMUX.out.json).collect())
+}
+
+// ---- entry: pick the named workflow with --entry (Nextflow 26 strict parser has no -entry) -----
+workflow {
+    if (params.entry == 'demux_bc2s3_batch2') {
+        demux_bc2s3_batch2()
+    } else if (params.entry == 'bc1_mask') {
+        bc1_mask()
+    } else {
+        error "unknown --entry '${params.entry}' (bc1_mask | demux_bc2s3_batch2)"
+    }
 }
