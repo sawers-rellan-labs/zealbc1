@@ -12,12 +12,19 @@ script file** at `agent/suggested_script_<YYYYMMDD_HHMMSS>.sh` instead of just d
 Copy-pasting multiline commands from the Claude Code CLI terminal corrupts spaces and linebreaks.
 The user can then run `bash agent/suggested_script_<timestamp>.sh`.
 
-## Plans and handovers go to `agent/`
+## Repo layout and workflow (one branch, one worktree — decided 2026-09-21)
 
-Write plans, design notes, and session handovers to the `agent/` folder for traceability (e.g.
-`agent/PLAN.md`, `agent/handover_<YYYYMMDD_HHMMSS>.md`). `agent/` is gitignored scratch — it holds
-working context and reference clones, not code to execute. Move code you intend to run out of
-`agent/` into the pipeline tree.
+- **Branch:** `main` only, in this directory. No per-task branches or worktrees (the three-worktree split of 09-11 went stale and was
+  collapsed). Branch only for a risky change you may discard, and delete it on merge. Hazel `ZEAL/code` tracks `main`; pull at session start.
+- **Tracked, the project's memory:** `docs/PLAN_*.md` = one plan of record per open task (production pipeline, depth contribution, QC
+  benchmark), `docs/PROJECT_STATE.md`, `docs/DECISIONS.md` (append-only). Scripts live under git: `nilhmm/` (pipeline), `PHG/bin`
+  (per-donor discovery + imputation), `PHG/analysis` (paintings, simulations), `meta/` (sample sheets, plate maps).
+- **`agent/` = gitignored scratch:** session handovers (`handover_<YYYYMMDD_HHMMSS>_<task>.md`, one per task), suggested scripts, run logs,
+  local result copies. Anything meant to outlive a session (plan, decision, script) is promoted into the tracked tree the same day.
+- **Commit at least once per session** (scripts + docs that changed). Data never enters git; it lives on the BZea partition.
+
+## Plans and handovers
+Plans of record → `docs/`. Session handovers → `agent/handover_<YYYYMMDD_HHMMSS>_<task>.md`.
 
 ## R script conventions
 
