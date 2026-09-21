@@ -27,7 +27,7 @@ its truth exists. The chr10 pilot can start with Gigi + TIL18 without waiting fo
 ## 2. Genotype truth (nilhmm, breakpoints only — no genomes are built)
 - BC2S3 lines: `nilHMM::simulate_family("BC2S3", families=F, sibs=S, chr=10, n_markers=20000)` → per-marker state 0/1/2 → `to_segments()`
   (same call as `results/sim_chr10/truth`, 2026-09-20). **Breakpoints are simulated ONCE per line and shared by the whole coverage sweep.**
-  Start with L = 10 lines (e.g. F=2 x S=5); the witness depth then equals a real 10-line donor.
+  Start with L = 10 lines = 10 families x 1 sib (each line from its own BC1; 2 x 5 gave all-REF chr10, 2026-09-21); the witness depth then equals a real 10-line donor.
 - BC1 plants: `simulate_nil(design="BC1S0", n=30, chr=10)` (as `agent/simulate_bc1.R`) → 30 plants → 5 pools of 6 → per-tract pool dosage
   k/12 = number of het plants in the pool over the tract. Five pools = five independent tract draws.
 
