@@ -12,3 +12,7 @@
 | 2026-09-21 | Real reads only if 2x150; else simulate from assembly | read-length match to skims | qc_set_founder_reads table |
 | 2026-09-21 | Depth-contribution donor = Zv.0490_P4 (max 0.4x/1.2x mixing) | 16/14 lines | docs/PLAN_depth_contribution_Zv0490.md |
 | 2026-09-21 | One branch (main), one worktree; plans of record in docs/, scripts under git, agent/ = scratch + handovers | three worktrees got out of hand | docs/PROJECT_STATE.md |
+| 2026-09-21 | Batch-2 Sample_Id = `P<Plot_id>` (unique per well); well map carries pedigree, donor (accession_P1), nil_id, label, is_check, taxon | one key that maps back to the BC2S3 pedigree string and the BC1 donor | meta/bc2s3_batch2_well_map.csv |
+| 2026-09-21 | Two wells with the same pedigree string = the same NIL (two plants); nil_id for pedigrees missing from the register is DERIVED by the register's own rule (marked `derived`) | register (2026-08-09) lacks 3 plated pedigrees; the rule reproduces all 2,624 ids | meta/bc2s3_batch2_well_map.csv |
+| 2026-09-21 | B73 checks only (no NC358) as batch-2 controls; painting label `B73_P<Plot_id>`, treated like the batch-1 `B73_check` rows | user | q_nilhmm_bc2s3_batch2.sh |
+| 2026-09-21 | pool_run 4E/4F/4G on compute/normal (not short QOS): DEMUX 4E ~2.1 h, BC1 ALIGN 1.3-4 h measured on pool 1B | exceeds the 2 h cap | agent/depth_contribution_Zv0490/step1_demux_proposal.md |
