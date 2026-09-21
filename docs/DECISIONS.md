@@ -16,3 +16,4 @@
 | 2026-09-21 | Two wells with the same pedigree string = the same NIL (two plants); nil_id for pedigrees missing from the register is DERIVED by the register's own rule (marked `derived`) | register (2026-08-09) lacks 3 plated pedigrees; the rule reproduces all 2,624 ids | meta/bc2s3_batch2_well_map.csv |
 | 2026-09-21 | B73 checks only (no NC358) as batch-2 controls; painting label `B73_P<Plot_id>`, treated like the batch-1 `B73_check` rows | user | q_nilhmm_bc2s3_batch2.sh |
 | 2026-09-21 | pool_run 4E/4F/4G on compute/normal (not short QOS): DEMUX 4E ~2.1 h, BC1 ALIGN 1.3-4 h measured on pool 1B | exceeds the 2 h cap | agent/depth_contribution_Zv0490/step1_demux_proposal.md |
+| 2026-09-21 | breakpoint_sim: 10 BC2S3 lines = 10 families x 1 sib (each line from its own BC1/BC2), not 2 x 5 | 2x5 made all 10 lines depend on two BC2 chromosomes → all chr10 REF, nothing to score | PHG/qcset/breakpoint_sim.sbatch |

@@ -14,7 +14,7 @@ set -euo pipefail
 Z=${Z:-/rsstu/users/r/rrellan/BZea/ZEAL}
 OUT=${OUT:-$Z/results/qcset_designB/chr10/breakpoint_sim}
 MAP=${MAP:-$Z/reference/teonam_v5_gwas118k_cm.tsv}
-SEED=${SEED:-20260921}; L_FAM=${L_FAM:-2}; L_SIB=${L_SIB:-5}; N_BC1=${N_BC1:-30}; N_MARKERS=${N_MARKERS:-20000}
+SEED=${SEED:-20260921}; L_FAM=${L_FAM:-10}; L_SIB=${L_SIB:-1}; N_BC1=${N_BC1:-30}; N_MARKERS=${N_MARKERS:-20000}
 source "$(conda info --base)/etc/profile.d/conda.sh"; conda activate nilhmm
 export NILHMM_BIN=$Z/code/nilhmm/bin
 mkdir -p "$OUT"

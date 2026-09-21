@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # breakpoint_sim — QC set design B, step 1: chr10 genotype truth on the TeoNAM-native v5 map.
 # Breakpoints only (no genomes, no reads); founder-independent, so ONE truth set serves Gigi and TIL18.
-#   BC2S3 lines : nilHMM::simulate_family("BC2S3", families=F, sibs=S) -> L lines, fixed for the whole coverage sweep
+#   BC2S3 lines : nilHMM::simulate_family("BC2S3", families=L, sibs=1) -> L INDEPENDENT lines (one BC1 each), fixed for the coverage sweep
 #   BC1 plants  : nilHMM::simulate_nil("BC1S0", n=N)                    -> N/6 pools x 6 plants, per-tract pool dosage k/12
 # Usage: Rscript breakpoint_sim.R <out_dir> <map.tsv> <seed> <families> <sibs> <bc1_plants> <n_markers>
 # Map columns: marker chr pos_v5 cm (zealhmm data/teonam/markers_v5_gwas118k_cm.tsv; chr10 = 7,173 markers, 119 cM).
