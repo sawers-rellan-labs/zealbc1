@@ -39,7 +39,15 @@ if (length(qcs) > 0 && all(nzchar(qcs))) {
   pass[] <- names(pass) %in% ok
 }
 keep_vcfs <- vcfs[pass]
-if (length(keep_vcfs) == 0) stop(sprintf("build_hd: no QC-passing BC1 plants for donor %s", donor))
+if (length(keep_vcfs) == 0) {
+  # Not fatal: a donor whose plants all fail QC (few het sites at low depth, contamination) gets an
+  # EMPTY mask (header only) and a warning; the per-plant QC table carries the reason. Stopping here
+  # killed the whole run on the subsampled test_run (2026-09-21).
+  log_warn("[build_hd] donor %s | %d plant(s), 0 QC-pass -> writing EMPTY mask %s", donor, length(vcfs), out)
+  fwrite(data.table(chrom = character(), pos = integer(), ref = character(), alt = character(),
+                    donor_allele = character()), out, sep = "\t", compress = "gzip")
+  quit(save = "no", status = 0)
+}
 log_info("[build_hd] donor %s | %d plant(s), %d QC-pass | reading het sites...",
          donor, length(vcfs), length(keep_vcfs))
 
