@@ -4,6 +4,7 @@ table `chrom pos ref alt`) restricted to the lowcopy BED, written as a haploid g
 (pilot_step5_donor_gvcf.py) so PHG loads it exactly like the discovered founders A / A+B.
   alt record : REF ALT,<NON_REF>  GT:AD:DP:PL 1:0,d,0:d:90,90,0
   ref block  : REF <NON_REF> END=..  GT:AD:DP:PL 0:d,0:d:0,90,90     over every BED interval, split around alt records
+(PL keeps the pilot founders 3-value layout on purpose: byte-parity with the A / A+B gVCFs PHG has already loaded.)
 Also writes <out>.alt.tsv (chrom pos ref alt) = the truth allele set for benchmarking discovery (false / missed founder alleles).
 Usage: build_founder_gvcf.py --snps Gigi_vs_B73_chr10_snps.tsv --donor Gigi_PERFECT --bed union_chr10.bed --fai B73.fa.fai
                              --out Gigi_PERFECT.g.vcf [--chrom chr10] [--depth 30]
@@ -51,7 +52,7 @@ with open(A.out, 'w') as o, open(A.out + '.alt.tsv', 'w') as t:
     for k_, t_ in (('ASM_Chr', 'String'), ('ASM_Start', 'Integer'), ('ASM_End', 'Integer'), ('ASM_Strand', 'String')):
         o.write(f'##INFO=<ID={k_},Number=1,Type={t_},Description="pseudo-assembly coordinate">\n')
     o.write('##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n')
-    o.write('##FORMAT=<ID=AD,Number=3,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed">\n')
+    o.write('##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed">\n')
     o.write('##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read Depth">\n')
     o.write('##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Normalized, Phred-scaled likelihoods for genotypes as defined in the VCF specification">\n')
     o.write(f"##contig=<ID={A.chrom},length={ln}>\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{A.donor}\n")
