@@ -12,9 +12,14 @@ timeline*.html
 report*.html
 trace*.txt
 
-# Slurm job logs (head-job stdout/err; the wrappers route these to ZEAL/results/log)
+# Slurm job logs + conda/phg env-build byproducts (were cluttering the worktree root)
 *.out
 *.err
+*.log
+phg_environment.yml
+phg_tiledb_environment.yml
+logs/*
+!logs/.gitkeep
 
 # OS / editor
 .DS_Store
