@@ -23,7 +23,7 @@ need <- c("marker", "chr", "pos_v5", "cm")
 if (!all(need %in% names(m))) stop(sprintf("map lacks columns: %s", paste(setdiff(need, names(m)), collapse = ",")))
 setnames(m, need, c("locus", "chr", "bp", "cm"))
 m <- m[chr == CHR & is.finite(cm) & bp > 0][order(bp)]
-m <- m[, .(cm = mean(cm)), by = .(locus = locus[1], chr, bp)][order(bp)]   # collapse duplicate bp
+m <- m[, .(locus = locus[1], cm = mean(cm)), by = .(chr, bp)][order(bp)]   # collapse duplicate bp, keep first locus name
 m[, cm := cummax(cm)]                                                        # monotone (Marey spline needs it)
 log_info("[breakpoint_sim] TeoNAM map chr%d: %d markers | %.1f cM | %.1f-%.1f Mb", CHR, nrow(m), max(m$cm), min(m$bp)/1e6, max(m$bp)/1e6)
 map <- as.data.frame(m[, .(locus, chr, cm, bp)])
