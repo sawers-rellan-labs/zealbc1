@@ -15,8 +15,10 @@
 # barcodes) in one pass, then ALIGN + MOSDEPTH only the samples in SAMPLES. Rows are 9-22 GB (3-8 min
 # each) and each line ~1-2 GB raw (~15 min ALIGN), so head + children fit compute_partners/short.
 #   sbatch q_nilhmm_bc2s3_batch2.sh                     (default SAMPLES = Zv.0490_P4 lines + V22 B73 checks)
-#   sbatch --export=ALL,SAMPLES=P4141,P4142 ...          (Sample_Id = P<Plot_id>, meta/bc2s3_batch2_well_map.csv)
-#   sbatch --export=ALL,SAMPLES=,... -> ALIGN all 384
+#   SAMPLES=P4141,P4142 sbatch --export=ALL q_nilhmm_bc2s3_batch2.sh   (Sample_Id = P<Plot_id>, meta/bc2s3_batch2_well_map.csv)
+#   SAMPLES= sbatch --export=ALL q_nilhmm_bc2s3_batch2.sh              -> ALIGN all 384
+# Set SAMPLES in the ENVIRONMENT (before sbatch): Slurm splits --export on commas, so a comma list
+# inside --export=ALL,SAMPLES=... would be truncated to its first element.
 # Outputs: results/bc2s3_batch2/{demux,cram,mosdepth,demux_qc,multiqc}. Kept apart from the BC1 CRAMs.
 
 # Depth-contribution set (docs/PLAN_depth_contribution_Zv0490.md): 14 Zv.0490_P4 lines + 4 B73 checks on the V22 rows.

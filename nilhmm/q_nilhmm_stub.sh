@@ -13,7 +13,7 @@
 #
 # Gate 0 — validate the whole DAG end to end with -stub-run (every module's stub: touches its
 # outputs). No tools, no data, no Slurm children, no conda. Runs on the short QOS (hazel's debug
-# queue). Submit from ZEAL/code/nilhmm:  sbatch q_nilhmm_stub.sh   |   sbatch --export=ALL,ENTRY=demux_bc2s3_batch2 q_nilhmm_stub.sh
+# queue). Submit from ZEAL/code/nilhmm:  sbatch q_nilhmm_stub.sh   |   ENTRY=demux_bc2s3_batch2 sbatch --export=ALL q_nilhmm_stub.sh
 #
 # Isolated launch + work dir so this run's .nextflow/history never poisons the production -resume.
 

@@ -14,7 +14,7 @@
 # test_run — ONE pool, subsampled (1M read pairs), through the real tools on the debug queue: the
 # wiring check for a pool that has not been through the pipeline yet (lane globs, well-map rows,
 # output names). Head + children on compute_partners/short (-profile debug caps every task at 1h).
-#   sbatch --export=ALL,POOL=4G q_nilhmm_test_run.sh        (default POOL=4G)
+#   POOL=4G sbatch --export=ALL q_nilhmm_test_run.sh          (default POOL=4G; one pool only — --export splits on commas)
 # Isolated launch + outdir per pool: results/test_run_<POOL>.
 
 # NOTE: no `set -u` — `source ~/.bashrc` trips on unbound $PS1.

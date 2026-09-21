@@ -83,9 +83,10 @@ workflow bc1_mask {
 
     // ---- (2) CALL DOSAGE on the existing BC2S3 counts -------------------
     // One binhmm run over the whole cohort: merged counts + sample->donor map + every donor mask.
-    // Independent of the mask half; runs only once its inputs exist (the sample->donor map is built
-    // from the pedigree separately), so Gate 0 can validate the mask half on its own.
-    if (file(params.bc2s3_counts).exists() && file(params.bc2s3_samples).exists()) {
+    // Independent of the mask half. OPT-IN (--dosage true) and inputs must exist: a restricted run
+    // (--pools 4E,4F,4G) must never publish a partial "cohort" dosage built from a few donors' masks
+    // into the canonical results tree. Gate 0 validates the mask half without it.
+    if (params.dosage && file(params.bc2s3_counts).exists() && file(params.bc2s3_samples).exists()) {
         BINHMM_DOSAGE(
             file(params.bc2s3_counts),                             // merged allelic_counts50K.tsv
             file(params.bc2s3_samples),                            // sample,donor map
