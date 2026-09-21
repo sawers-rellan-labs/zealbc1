@@ -13,7 +13,9 @@ process DEMUX {
     path well_map
 
     output:
-    tuple val(pool), path("S_*_R1.fq.gz"), path("S_*_R2.fq.gz"), emit: reads
+    // Per-sample pairs live in reads/ so the glob is Sample_Id-prefix agnostic (BC1 S_*, batch-2 P<Plot_id>)
+    // and can never catch <pool>.unknown_R*.fq.gz or the R1/R2.fq.gz concat temps.
+    tuple val(pool), path("reads/*_R1.fq.gz"), path("reads/*_R2.fq.gz"), emit: reads
     path "${pool}.cutadapt.json",                                emit: json
     path "${pool}.unknown_R{1,2}.fq.gz",                         emit: unknown
 
@@ -51,17 +53,19 @@ process DEMUX {
     fi
     \$CA R1.fq.gz R2.fq.gz
 
+    mkdir -p reads
     awk -F, -v p="${pool}" 'NR>1 && \$1==p {print \$2"\\t"\$4}' ${well_map} | while IFS=\$'\\t' read -r col sid; do
-      mv "${pool}_\${col}_R1.fq.gz" "\${sid}_R1.fq.gz"
-      mv "${pool}_\${col}_R2.fq.gz" "\${sid}_R2.fq.gz"
+      mv "${pool}_\${col}_R1.fq.gz" "reads/\${sid}_R1.fq.gz"
+      mv "${pool}_\${col}_R2.fq.gz" "reads/\${sid}_R2.fq.gz"
     done
     rm -f R1.fq.gz R2.fq.gz
     """
 
     stub:
     """
+    mkdir -p reads
     awk -F, -v p="${pool}" 'NR>1 && \$1==p {print \$4}' ${well_map} | while read -r sid; do
-      : > "\${sid}_R1.fq.gz"; : > "\${sid}_R2.fq.gz"
+      : > "reads/\${sid}_R1.fq.gz"; : > "reads/\${sid}_R2.fq.gz"
     done
     : > ${pool}.cutadapt.json
     : > ${pool}.unknown_R1.fq.gz; : > ${pool}.unknown_R2.fq.gz
