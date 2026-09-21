@@ -1,0 +1,7 @@
+source	fasta	depth	seed	note
+Gigi_D	results/phg_pilot/chr10/Zd-Gigi-REFERENCE-PanAnd-1.0_chr10.fa	22	101	donor reads, Gigi chr10 (147.2 Mb)
+TIL18_D	results/phg_pilot/chr10/Zx-TIL18-REFERENCE-PanAnd-1.0_chr10.fa	22	102	donor reads, TIL18 chr10 (144.6 Mb)
+B73_sim1	results/phg_pilot/chr10/B73_chr10.fa	20	201	B73 v5 chr10 slice 1 (shared by both founders)
+B73_sim2	results/phg_pilot/chr10/B73_chr10.fa	20	202	B73 v5 chr10 slice 2
+B73_sim3	results/phg_pilot/chr10/B73_chr10.fa	20	203	B73 v5 chr10 slice 3
+B73_sim4	results/phg_pilot/chr10/B73_chr10.fa	20	204	B73 v5 chr10 slice 4
