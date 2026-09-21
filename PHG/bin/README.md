@@ -1,0 +1,12 @@
+# PHG/bin — per-donor discovery + imputation scripts (from the chr10 pilot)
+Moved under git 2026-09-21 from `ZEAL/results/pilot_1B_chr10/` on hazel (code moves via git only; hazel pulls this tree).
+| script | step (plan §) | role |
+|---|---|---|
+| `make_union_bed.py` | lowcopy ranges | gene ±500 bp ∪ non-TE intergenic → merged BED (the "lowcopy" range set) |
+| `pilot_step4_postfilter_llr.py` | step 4 | per-donor pooled LLR on the 1/12 lattice, tiers A/B/C, >1-pool rule, B73 zero class |
+| `merge_step4.py` | step 4 | merge per-pool step-4 tables |
+| `pilot_step5_donor_gvcf.py` | step 5 | founder gVCF (tier A / A+B) + alt table for the pseudo-assembly |
+| `pilot_step9_compare_rtiger_v5.R` | step 9 | PHG paths vs RTIGER: agreement table, segments, painting (shared-hapid ranges = no call) |
+| `reads_per_bin.py` | diagnostics | informative reads per line×range at tier-A sites; lowcopy vs fixed bins |
+| `aligned_vs_informative.py` | diagnostics | bedcov reads vs PHG k-mer-mapped pairs per range (units differ: reads vs pairs, all vs MAPQ20) |
+Paint/simulation helpers: `../analysis/`. Run recipes (sbatch bodies) are in the plans under `docs/` and the pilot run log `agent/pilot_1B_chr10_runlog_20260917.md`.
