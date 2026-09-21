@@ -24,6 +24,7 @@
 # Depth-contribution set (docs/PLAN_depth_contribution_Zv0490.md): 14 Zv.0490_P4 lines + 4 B73 checks on the V22 rows.
 DEFAULT_SAMPLES="P4141,P4142,P4143,P4144,P4145,P4146,P4147,P4148,P4149,P4150,P4181,P4182,P4183,P4184,P4107,P4187,P4180,P4119"
 SAMPLES="${SAMPLES-$DEFAULT_SAMPLES}"
+POOLS="${POOLS:-}"              #  = demux all 32 rows; else comma list e.g. V22A,V22B,...
 
 # NOTE: no `set -u` — `source ~/.bashrc` trips on unbound $PS1.
 SUBMIT_DIR="${SLURM_SUBMIT_DIR:-$PWD}"
@@ -42,6 +43,7 @@ cd "$RUN"
 if [ -n "$NF_RESUME" ]; then RESUME=(-resume "$NF_RESUME"); else RESUME=(); fi
 nextflow run "$PROJ/main.nf" \
   --entry demux_bc2s3_batch2 \
+  --pools "$POOLS" \
   -profile debug \
   --samples "$SAMPLES" \
   --outdir "$RUN" \

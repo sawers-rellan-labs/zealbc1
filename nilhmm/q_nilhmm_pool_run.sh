@@ -23,6 +23,7 @@
 
 # NOTE: no `set -u` — `source ~/.bashrc` trips on unbound $PS1.
 POOLS="${POOLS:-4E,4F,4G}"
+SAMPLES="${SAMPLES:-}"          #  = align all plants of the pools; else comma list of Sample_Id
 TAG="$(echo "$POOLS" | tr -d ', ')"
 SUBMIT_DIR="${SLURM_SUBMIT_DIR:-$PWD}"
 PROJ="$SUBMIT_DIR"
@@ -41,6 +42,7 @@ if [ -n "$NF_RESUME" ]; then RESUME=(-resume "$NF_RESUME"); else RESUME=(); fi
 nextflow run "$PROJ/main.nf" \
   -profile slurm \
   --pools "$POOLS" \
+  --samples "$SAMPLES" \
   --outdir "$ZEAL/results" \
   "${RESUME[@]}" 2>&1
 rc=$?

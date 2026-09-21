@@ -58,7 +58,10 @@ workflow bc1_mask {
     DEMUX(libs, bc_fasta, well_map)
 
     // flatten each pool's per-plant FASTQs into (Sample_Id, R1, R2), pairing by Sample_Id
+    // --samples (comma list of Sample_Id) restricts ALIGN and everything downstream; '' = all plants.
+    def sample_set = keep_set(params.samples)
     reads = flatten_reads(DEMUX.out.reads)
+        .filter { s, r1, r2 -> sample_set == null || sample_set.contains(s) }
 
     ALIGN(reads, ref_ready)
     GENOTYPE(ALIGN.out)
