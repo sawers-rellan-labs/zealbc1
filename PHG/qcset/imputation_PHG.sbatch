@@ -35,8 +35,10 @@ echo "== [0b] sweep reads -> FASTQ for map-kmers  $(date)"
 printf 'sampleName\tfilename\tfilename2\n' > keyfile.tsv
 for s in $(awk -F'\t' 'NR > 1 && $2 == "sweep" {print $1}' "$S/samples.tsv"); do
   # collate first: a coordinate-sorted CRAM streamed straight into fastq gives R1/R2 files that are NOT in the same order (map-kmers pairs by order)
-  [ -s "reads/${s}_R1.fq.gz" ] || samtools collate -u -O --reference "$Z/reference/B73.fa" "$S/$s.cram" "$TMPDIR/collate_$s" 2>/dev/null \
-    | samtools fastq -n -1 "reads/${s}_R1.fq.gz" -2 "reads/${s}_R2.fq.gz" -0 /dev/null -s /dev/null - 2>/dev/null
+  if [ ! -s "reads/${s}_R1.fq.gz" ] || [ ! -s "reads/${s}_R2.fq.gz" ]; then
+    samtools collate -u -O --reference "$Z/reference/B73.fa" "$S/$s.cram" "$TMPDIR/collate_$s" \
+      | samtools fastq -n -1 "reads/${s}_R1.fq.gz" -2 "reads/${s}_R2.fq.gz" -0 /dev/null -s /dev/null -
+  fi
   printf '%s\t%s\t%s\n' "$s" "$W/reads/${s}_R1.fq.gz" "$W/reads/${s}_R2.fq.gz" >> keyfile.tsv
 done; echo "sweep samples: $(($(wc -l < keyfile.tsv) - 1))"
 conda activate $Z/envs/jdk21; conda config --prepend envs_dirs $Z/envs 2>/dev/null || true

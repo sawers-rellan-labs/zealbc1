@@ -62,8 +62,8 @@ calls <- list()
 for (DN in VARIANTS) {
   g <- file.path(Q, "imputation_PHG", F, paste0("graph_", DN))
   if (dir.exists(file.path(g, "parents"))) { ph <- read_phg_ranges(g, DN)
-    ph[, rid := ranges$rid[match(start, ranges$start)]]                      # parents start = BED start (0-based)?
-    if (mean(is.na(ph$rid)) > 0.5) ph[, rid := ranges$rid[match(start - 1L, ranges$start)]]   # ... or hVCF POS (1-based)
+    m0 <- match(ph$start, ranges$start); m1 <- match(ph$start - 1L, ranges$start)   # parents start = BED start (0-based) or hVCF POS (1-based)?
+    ph[, rid := ranges$rid[if (sum(is.na(m1)) < sum(is.na(m0))) m1 else m0]]
     if (mean(is.na(ph$rid)) > 0.05) log_warn("[benchmarking] %s: %.1f%% of PHG ranges did not match a lowcopy range start", DN, 100 * mean(is.na(ph$rid)))
     calls[[paste("PHG", DN)]] <- ph[!is.na(rid), .(sample, rid, call = state, caller = "PHG", variant = DN)] }
   rc <- list.files(file.path(Q, "imputation_RTIGER", F, DN), pattern = "^rtiger_poolseq_.*\\.csv$", full.names = TRUE)
@@ -86,10 +86,12 @@ print(dcast(summ[class != "HET"], caller + variant + class ~ lambda, value.var =
 bk_truth <- truth[, .(bp = end_bp[-.N]), by = name]
 offs <- rbindlist(lapply(names(calls), function(k) { x <- calls[[k]]; x <- x[!is.na(call)]; x <- merge(x, ranges[, .(rid, start, end)], by = "rid")
   x <- x[order(sample, start)]; x[, chg := c(FALSE, call[-1] != call[-.N]), by = sample]; b <- x[chg == TRUE, .(bp = start), by = sample]
+  b <- merge(unique(x[, .(sample)]), b, by = "sample", all.x = TRUE)          # samples with NO call breakpoint stay in (bp = NA)
   b <- cbind(b, parse_sample(b$sample, F)[, .(line, lambda)]); rbindlist(lapply(split(b, b$sample), function(s) { t <- bk_truth[name == s$line[1]]; if (!nrow(t)) return(NULL)
+    nb <- sum(!is.na(s$bp))
     data.table(caller = x$caller[1], variant = x$variant[1], sample = s$sample[1], line = s$line[1], lambda = s$lambda[1], truth_bp = t$bp,
-               offset_bp = sapply(t$bp, function(p) min(abs(s$bp - p))), n_call_breakpoints = nrow(s)) })) }))
+               offset_bp = if (nb) sapply(t$bp, function(p) min(abs(s$bp - p), na.rm = TRUE)) else NA_real_, n_call_breakpoints = nb) })) }))
 if (nrow(offs)) { fwrite(offs, file.path(out, "breakpoint_offsets.tsv"), sep = "\t")
-  fwrite(offs[, .(n = .N, median_offset_kb = median(offset_bp) / 1e3, extra_breakpoints_per_line = mean(n_call_breakpoints) - mean(table(bk_truth$name))), by = .(caller, variant, lambda)][order(caller, variant, lambda)],
+  fwrite(offs[, .(n = .N, missed = sum(is.na(offset_bp)), median_offset_kb = median(offset_bp, na.rm = TRUE) / 1e3, extra_breakpoints_per_line = mean(n_call_breakpoints) - mean(table(bk_truth$name))), by = .(caller, variant, lambda)][order(caller, variant, lambda)],
          file.path(out, "breakpoint_summary.tsv"), sep = "\t") }
 log_info("[benchmarking] %s done -> %s", F, out)
