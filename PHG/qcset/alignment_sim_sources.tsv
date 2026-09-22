@@ -5,3 +5,6 @@ B73_sim1	results/phg_pilot/chr10/B73_chr10.fa	20	201	B73 v5 chr10 slice 1 (share
 B73_sim2	results/phg_pilot/chr10/B73_chr10.fa	20	202	B73 v5 chr10 slice 2
 B73_sim3	results/phg_pilot/chr10/B73_chr10.fa	20	203	B73 v5 chr10 slice 3
 B73_sim4	results/phg_pilot/chr10/B73_chr10.fa	20	204	B73 v5 chr10 slice 4
+Gigi_D2	results/phg_pilot/chr10/Zd-Gigi-REFERENCE-PanAnd-1.0_chr10.fa	22	111	donor slice 2 (read_mixing demand max 30.5x > 22x)
+TIL18_D2	results/phg_pilot/chr10/Zx-TIL18-REFERENCE-PanAnd-1.0_chr10.fa	22	112	donor slice 2
+B73_sim5	results/phg_pilot/chr10/B73_chr10.fa	20	205	B73 slice 5 (demand max 86x > 80x)
