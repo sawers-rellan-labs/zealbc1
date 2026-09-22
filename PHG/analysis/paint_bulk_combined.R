@@ -35,8 +35,7 @@ for (lam in lams) for (ln in introg){
   rows[[paste(lab,"a")]] <- phgA[line==ln & abs(lambda-lam)<1e-9, .(name=lab, chr=10L, start_bp, end_bp, state, method="PHG")]
 }
 d <- rbindlist(rows)
-lvls <- as.vector(t(outer(lams, introg, function(l,n) sprintf("%s %.2gx", n, l))))   # grouped by coverage: all lam1 lines, then lam2
-lvls <- unlist(lapply(lams, function(l) sprintf("%s %.2gx", introg, l)))
+lvls <- unlist(lapply(introg, function(ln) sprintf("%s %.2gx", ln, lams)))   # sort by line, then coverage within (1.2x above 0.05x)
 d[, name := factor(name, levels = lvls)]
 d[, method := factor(method, levels = c("truth","RTIGER","PHG"))]
 p <- paint_style(paint_calls(as.data.frame(d[, .(name, chr, start_bp, end_bp, state, method)]), track="method"),
