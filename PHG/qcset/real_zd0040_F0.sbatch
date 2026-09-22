@@ -14,13 +14,13 @@ set -euo pipefail
 Z=/rsstu/users/r/rrellan/BZea/ZEAL; C=$Z/code; U=$Z/results/pilot_1B_chr10/union
 DN=Zd.0040_P1v4; REF10=$Z/results/pilot_1B_chr10/phg/B73_chr10.fa; PHG=$Z/envs/phgv2/phg/bin/phg
 NEW_RM=$Z/results/phg_lane_mapq20/$DN/readmap; NEW_HV=$Z/results/phg_lane_mapq20/$DN/hvcf
-OLD_RM=$U/step7_v4/$DN/readmap;               OLD_HV=$U/step7_v4/$DN         # old hvcf sit in the dir itself
+OLD_RM=$U/step7_v4/$DN/readmap;               OLD_HV=$U/step7_v4/$DN/hvcf    # hvcf live in the hvcf/ subdir
 OUT=$Z/results/real_zd0040_F0; mkdir -p $OUT
 source "$(conda info --base)/etc/profile.d/conda.sh"; conda activate $Z/envs/jdk21; conda config --prepend envs_dirs $Z/envs 2>/dev/null || true
 export JAVA_OPTS="-Xmx28g"
 run_f0() {   # $1 label(old|new)  $2 readmap dir  $3 hvcf dir
   lab=$1; rm=$2; hv=$3; G=$OUT/$lab; mkdir -p $G/paths $G/parents $G/hvcf
-  ln -sf $hv/*.h.vcf $G/hvcf/ 2>/dev/null || ln -sf $hv/B73.h.vcf $hv/${DN}.h.vcf $G/hvcf/
+  ln -sf "$hv/B73.h.vcf" "$hv/${DN}.h.vcf" "$G/hvcf/"   # only the 2 hvcf, not kmerIndex/logs
   printf 'sampleName\tfilename\n' > $G/path_key.tsv
   for f in $rm/*_readMapping.txt; do s=$(basename "$f" _readMapping.txt); s=${s%%_R1*}; s=${s%%_chr10*}; printf '%s\t%s\n' "$s" "$f" >> $G/path_key.tsv; done
   $PHG find-paths --path-keyfile $G/path_key.tsv --hvcf-dir $G/hvcf --reference-genome $REF10 --output-dir $G/paths --out-parents-dir $G/parents \
