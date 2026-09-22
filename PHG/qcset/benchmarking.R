@@ -65,7 +65,10 @@ for (DN in VARIANTS) {
     m0 <- match(ph$start, ranges$start); m1 <- match(ph$start - 1L, ranges$start)   # parents start = BED start (0-based) or hVCF POS (1-based)?
     ph[, rid := ranges$rid[if (sum(is.na(m1)) < sum(is.na(m0))) m1 else m0]]
     if (mean(is.na(ph$rid)) > 0.05) log_warn("[benchmarking] %s: %.1f%% of PHG ranges did not match a lowcopy range start", DN, 100 * mean(is.na(ph$rid)))
-    calls[[paste("PHG", DN)]] <- ph[!is.na(rid), .(sample, rid, call = state, caller = "PHG", variant = DN)] }
+    ph <- ph[!is.na(rid), .(sample, rid, call = state)]
+    grid <- CJ(sample = unique(ph$sample), rid = ranges$rid)                      # ranges with NO path record count as no-call
+    ph <- merge(grid, ph, by = c("sample", "rid"), all.x = TRUE)
+    calls[[paste("PHG", DN)]] <- ph[, .(sample, rid, call, caller = "PHG", variant = DN)] }
   rc <- list.files(file.path(Q, "imputation_RTIGER", F, DN), pattern = "^rtiger_poolseq_.*\\.csv$", full.names = TRUE)
   if (length(rc)) { rt <- read_rtiger(rc[1])
     calls[[paste("RTIGER", DN)]] <- rt[, .(rid = ranges$rid, call = raster(.SD, ranges)), by = sample][, .(sample, rid, call, caller = "RTIGER", variant = DN)] }
@@ -82,6 +85,12 @@ fwrite(per_sample[order(caller, variant, lambda, line)], file.path(out, "genotyp
 summ <- cl[, .(ranges = .N, no_call = mean(no_call), mismatch = sum(mismatch) / max(1, sum(!no_call)), dosage_err = mean(dosage_err, na.rm = TRUE)), by = .(caller, variant, lambda, class)]
 fwrite(summ[order(caller, variant, lambda, class)], file.path(out, "genotyping_summary.tsv"), sep = "\t")
 print(dcast(summ[class != "HET"], caller + variant + class ~ lambda, value.var = "mismatch"), digits = 3)
+head_tab <- cl[!is.na(class), .(called = mean(!no_call), mismatch_REF = sum(mismatch & truth == 0L) / max(1, sum(truth == 0L & !no_call)),
+                                mismatch_ALT = sum(mismatch & truth == 2L) / max(1, sum(truth == 2L & !no_call)),
+                                false_teo_Mb = sum(false_teo * (ranges$end[rid] - ranges$start[rid])) / 1e6 / uniqueN(sample),
+                                b73_gap_frac = sum(b73_gap) / max(1, sum(truth == 2L & !no_call)), dosage_err = mean(dosage_err, na.rm = TRUE)),
+               by = .(caller, variant, lambda)][order(caller, variant, lambda)]
+fwrite(head_tab, file.path(out, "genotyping_headline.tsv"), sep = "\t"); print(head_tab, digits = 3)
 # breakpoint offset: truth breakpoints (segment boundaries inside the chromosome) vs nearest call boundary of the same sample track
 bk_truth <- truth[, .(bp = end_bp[-.N]), by = name]
 offs <- rbindlist(lapply(names(calls), function(k) { x <- calls[[k]]; x <- x[!is.na(call)]; x <- merge(x, ranges[, .(rid, start, end)], by = "rid")
