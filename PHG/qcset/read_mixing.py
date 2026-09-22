@@ -6,7 +6,8 @@ Destinations (per founder):
   BC1 pools   : pool<p>            depth --pool-depth (15x); per tract donor share k/12 (bc1_pool<p>_dosage.bed), B73 share 1-k/12
   sweep       : <line>_lam<λ>      depth λ (one per --lambdas); per tract state 0 -> B73, 1 -> donor:B73 1:1, 2 -> donor
   (witness = samtools merge of the sweep samples, B73 control = the real CRAM: both done by the sbatch, not here)
-Sources: --donor-cram (one or more files, nominal depth --donor-depth EACH) and --b73-cram (one or more, --b73-depth EACH).
+Sources: --donor-cram / --b73-cram (files to walk in THIS run, nominal depth --donor-depth / --b73-depth EACH); the design's
+slice counts --n-donor / --n-b73 set the denominators, so an array task can walk one file and stay consistent with the others.
 Assignment: u = hash(qname) in [0,1); at the fragment's position x the destinations own consecutive sub-intervals of [0,1)
 of width target_depth_i(x) / total_nominal_depth(source); the read goes to the owner of u, or nowhere. Both mates share the
 qname and the fragment start min(pos, mpos), so a pair is never split. Reads are kept only if they overlap the lowcopy BED
@@ -25,7 +26,9 @@ ap.add_argument('--chrom', default='chr10'); ap.add_argument('--chrlen', type=in
 ap.add_argument('--lambdas', default='0.05,0.1,0.2,0.4,0.8,1.2'); ap.add_argument('--pool-depth', type=float, default=15.0)
 ap.add_argument('--pool-n', type=int, default=12, help='haploid genomes per pool (6 plants)')
 ap.add_argument('--donor-cram', nargs='*', default=[]); ap.add_argument('--donor-depth', type=float, default=22.0)
+ap.add_argument('--n-donor', type=int, help='number of donor slices in the design (denominator); default = files given')
 ap.add_argument('--b73-cram', nargs='*', default=[]); ap.add_argument('--b73-depth', type=float, default=20.0)
+ap.add_argument('--n-b73', type=int, help='number of B73 slices in the design (denominator); default = files given')
 ap.add_argument('--reference', help='B73 FASTA (CRAM decoding)')
 ap.add_argument('--out', required=True); ap.add_argument('--only', help='comma list of destinations to write (unit test)')
 ap.add_argument('--plan-only', action='store_true'); ap.add_argument('--salt', default='qcsetB')
@@ -62,7 +65,7 @@ def share_at(tr, x):
 # --- piecewise-constant demand: cut points = union of all tract boundaries
 cuts = sorted({0, A.chrlen} | {t[0] for d in dests for t in d[3]} | {t[1] for d in dests for t in d[3]})
 cuts = [c for c in cuts if 0 <= c <= A.chrlen]
-nsrc = {'donor': max(1, len(A.donor_cram)) * A.donor_depth, 'b73': max(1, len(A.b73_cram)) * A.b73_depth}
+nsrc = {'donor': (A.n_donor or max(1, len(A.donor_cram))) * A.donor_depth, 'b73': (A.n_b73 or max(1, len(A.b73_cram))) * A.b73_depth}
 # cum[src][interval i] = list of cumulative fractions (len = ndest) in dest order
 cum = {'donor': [], 'b73': []}; demand = []
 for i in range(len(cuts) - 1):
