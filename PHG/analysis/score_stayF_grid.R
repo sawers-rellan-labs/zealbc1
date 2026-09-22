@@ -13,7 +13,7 @@ phg_state <- function(par){ x<-fread(par); setnames(x,1:5,c("chr","start","end",
   x[, `:=`(start=as.integer(start), end=as.integer(end))]
   x[, state:=as.integer(!startsWith(p1,"B73"))+as.integer(!startsWith(p2,"B73"))]
   x[start %in% shared | (start-1L) %in% shared, state:=NA_integer_]; x[, .(start, end, state)] }
-mcc_multi <- function(cm){ s<-sum(cm); c<-sum(diag(cm)); pk<-colSums(cm); tk<-rowSums(cm)
+mcc_multi <- function(cm){ cm<-matrix(as.numeric(cm),3,3); s<-sum(cm); c<-sum(diag(cm)); pk<-colSums(cm); tk<-rowSums(cm)
   num<-c*s - sum(pk*tk); den<-sqrt((s^2-sum(pk^2))*(s^2-sum(tk^2))); if(den==0) NA else num/den }
 cells <- list.files(GRID, pattern="^s.*_F.*$", full.names=TRUE); cells <- cells[dir.exists(file.path(cells,"parents"))]
 res <- list()
