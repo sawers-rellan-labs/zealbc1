@@ -29,9 +29,13 @@ run_f0() {   # $1 label(old|new)  $2 readmap dir  $3 hvcf dir
 }
 run_f0 old "$OLD_RM" "$OLD_HV"
 run_f0 new "$NEW_RM" "$NEW_HV"
+echo "== labels: sample -> nil_id + coverage (kept reads x 140 / 2.178 Gb)  $(date)"
+awk 'NR==FNR{nil[$1]=$2; next} {cov=$4*140/2.178e9; if($1 in nil) printf "%s\t%s %.2fx\n", $1, nil[$1], cov}' \
+  $Z/results/pilot_1B_chr10/skim_sample_nil_id.tsv $Z/results/bc2s3_realign/realign_done.tsv > $OUT/labels.tsv
+echo "labels: $(wc -l < $OUT/labels.tsv)"
 echo "== paint (F=0) $(date)"
 conda activate /share/maize/frodrig4/conda/env/nilhmm; export NILHMM_BIN=$C/nilhmm/bin
 Rscript $C/PHG/analysis/paint_phg_reads_old_vs_new.R $U/rtiger_v4/rtiger_poolseq_v4_r500_chr10_Zd0040.csv $OUT/old $OUT/new $DN \
-  "Zd.0040_P1 BC2S3 pools, chr10 - PHG at F=0 (pool setting): old unfiltered reads vs MAPQ20 reads, vs RTIGER" $OUT/Zd0040_F0_old_vs_mapq20.png
+  "$(printf 'Zd.0040_P1 BC2S3 pools, chr10 \u2014 PHG at F=0 (pool setting):\nold unfiltered reads vs MAPQ20 reads, vs RTIGER')" $OUT/Zd0040_F0_old_vs_mapq20.png $OUT/labels.tsv
 cp -f $OUT/Zd0040_F0_old_vs_mapq20.png $Z/results/qcset_designB/chr10/results_for_laptop/ 2>/dev/null || { mkdir -p $Z/results/qcset_designB/chr10/results_for_laptop/real_F0; cp -f $OUT/Zd0040_F0_old_vs_mapq20.png $Z/results/qcset_designB/chr10/results_for_laptop/real_F0/; }
 echo "[real_zd0040_F0] done -> $OUT"
