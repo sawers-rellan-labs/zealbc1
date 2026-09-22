@@ -25,7 +25,7 @@ map <- as.data.frame(m[, .(locus, chr, cm, bp)])
 log_info("[breakpoint_sim_bulk] TeoNAM map chr%d: %d markers | %.1f cM", CHR, nrow(m), max(m$cm))
 
 ## one BC2S3 family of 6 sibs per plot; families = plots so each plot is its own BC1/founder haplotype
-fam <- simulate_family("BC2S3", families = n_plots, sibs = SIBS, chr = CHR, n_markers = nmk, map = map, seed = seed, donor = "Hd", prefix = "plot")
+fam <- simulate_family("BC2S3", families = n_plots, sibs = SIBS, chr = CHR, n_markers = nmk, map = map, seed = seed, donor = "Hd", prefix = "qc")
 tr <- as.data.table(fam$truth)                              # cols: source donor name family chr pos cm state ; name = <plot>_L0<sib>
 tr[, plot := family]
 fwrite(tr, file.path(out, "bc2s3_bulk_sibs_truth_markers.tsv"), sep = "\t")
@@ -43,13 +43,13 @@ for (p in plots) {
   ## bulk dosage: sum of the 6 sibs' state (0/1/2) at each marker -> k in 0..12
   kd <- d[, .(k = sum(state)), by = pos][order(pos)]
   bed_k <- rle_bed(kd, "k"); setnames(bed_k, "val", "k")
-  fwrite(bed_k[, .(chr, start, end, k)], file.path(out, sprintf("bc2s3_bulk_plot%s_dosage.bed", sub("plot", "", p))), sep = "\t", col.names = FALSE)
-  bulk_seg[[p]] <- bed_k[, .(name = p, chr = CHR, start_bp = start, end_bp = end, state = k)]
+  fwrite(bed_k[, .(chr, start, end, k)], file.path(out, sprintf("bc2s3_bulk_%s_dosage.bed", sort(unique(d$name))[1])), sep = "\t", col.names = FALSE)
+  bulk_seg[[p]] <- bed_k[, .(name = sort(unique(d$name))[1], chr = CHR, start_bp = start, end_bp = end, state = k)]
   ks[[p]] <- bed_k[, .(bp = sum(end - start)), by = k]
-  ## single-genome control: sib 1 (state 0/1/2)
+  ## single-genome control: sib 1 (state 0/1/2), keep its real name (qcNN_L01) so it matches the existing sweep lines
   s1nm <- sort(unique(d$name))[1]; d1 <- d[name == s1nm][order(pos)]
   bed_s <- rle_bed(d1, "state"); setnames(bed_s, "val", "state")
-  bed_s[, name := p]; single_seg[[p]] <- bed_s[, .(name, chr = CHR, start_bp = start, end_bp = end, state)]
+  bed_s[, name := s1nm]; single_seg[[p]] <- bed_s[, .(name = s1nm, chr = CHR, start_bp = start, end_bp = end, state)]
 }
 single <- rbindlist(single_seg); bulk <- rbindlist(bulk_seg)
 fwrite(single, file.path(out, "bc2s3_single_truth_segments.tsv"), sep = "\t")   # control truth (0/1/2)
