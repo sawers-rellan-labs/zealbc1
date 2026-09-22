@@ -7,7 +7,8 @@ suppressPackageStartupMessages({ library(nilHMM); library(data.table); library(g
 source(file.path(.bin, "..", "qcset", "qcset_io.R"))
 a <- commandArgs(TRUE); F <- a[1]; Q <- a[2]; W <- a[3]; out <- a[4]
 lams <- as.numeric(strsplit(if (length(a) >= 5) a[5] else "1.2,0.05", ",")[[1]])
-parse_line <- function(s) sub("_L[0-9]+$", "", sub(paste0("^", F, "_"), "", sub("_lam.*$", "", s)));   # pool = plot id (drop the sib-1 suffix) parse_lam <- function(s) as.numeric(sub("^.*_lam", "", s))
+parse_line <- function(s) sub("_L[0-9]+$", "", sub(paste0("^", F, "_"), "", sub("_lam.*$", "", s)))   # pool = plot id (drop sib-1 suffix)
+parse_lam <- function(s) as.numeric(sub("^.*_lam", "", s))
 bt <- fread(file.path(Q, "breakpoint_sim_bulk", "bc2s3_bulk_truth_dosage_segments.tsv"))
 bt[, state3 := fifelse(state == 0L, 0L, fifelse(state == 12L, 2L, 1L))]
 bt[, plot := sub("_L[0-9]+$", "", name)]
