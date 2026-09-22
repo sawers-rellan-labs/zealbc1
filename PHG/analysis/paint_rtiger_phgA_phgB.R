@@ -1,5 +1,7 @@
 # Side by side, from existing tracks (no new computation): RTIGER poolseq (tier A sites, r500) | PHG founder A+B (v4) | PHG founder tier A (v5); both PHG at stay 0.9991, F 0.86, min-reads 1.
 suppressPackageStartupMessages({ library(nilHMM); library(data.table); library(ggplot2) })
+.bin_pt <- dirname(sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE)[1]))
+.src <- file.path(.bin_pt, "..", "qcset", "qcset_io.R"); if (file.exists(.src)) source(.src)
 A <- "agent"
 hv <- function(f) { l <- grep("^#", readLines(f), invert = TRUE, value = TRUE); x <- strsplit(l, "\t"); data.table(start_bp = as.integer(sapply(x, `[`, 2)), hapid = gsub("[<>]", "", sapply(x, `[`, 5))) }
 phg <- function(pdir, b73f, donf, lab) {
@@ -20,8 +22,7 @@ ped <- fread(file.path(A, "skim_sample_nil_id.tsv")); cov <- fread(file.path(A, 
 teo <- rt[, .(teo = sum((end_bp - start_bp) * (state > 0))), by = name]; ordn <- teo[order(-teo)]$name; ordn <- c(intersect(ordn, "PN10_SID893"), setdiff(ordn, "PN10_SID893"))
 calls <- calls[name %in% ordn]; calls[, name := factor(lab(name), levels = lab(ordn))]
 calls[, method := factor(method, levels = c("RTIGER poolseq", "PHG A", "PHG B"))]
-p <- paint_calls(as.data.frame(calls[, .(name, chr, start_bp, end_bp, state, method)]), track = "method") +
-  labs(x = "chr10 position (Mb)", title = "Zd.0040_P1 BC2S3 lines, chr10",
-       subtitle = NULL) +
-  theme(strip.text.y.left = element_text(angle = 0, hjust = 1, size = 10, face = "bold"), plot.title = element_text(size = 12), plot.subtitle = element_text(size = 9))
+p <- paint_style(paint_calls(as.data.frame(calls[, .(name, chr, start_bp, end_bp, state, method)]), track = "method"),
+                 title = "Zd.0040_P1 BC2S3 lines, chr10",
+                 subtitle = "lanes: RTIGER poolseq (tier A) | PHG founder A (tier A) | PHG founder B (A+B)")
 out <- file.path(A, "pilot_1B_chr10_results_v9/Zd0040_RTIGERpoolseq_PHGA_PHGB.png"); ggsave(out, p, width = 14, height = 1.3 * length(ordn) + 1.5, dpi = 150, limitsize = FALSE); cat("wrote", out, "\n")
