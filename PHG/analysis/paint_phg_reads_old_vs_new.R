@@ -27,6 +27,7 @@ calls[, name := factor(name, levels = ordn)]
 calls[, method := factor(method, levels = c("RTIGER", "PHG old", "PHG MAPQ20"))]
 .bin_pt <- dirname(sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE)[1]))
 src <- file.path(.bin_pt, "..", "qcset", "qcset_io.R"); if (file.exists(src)) source(src)
+ttl <- sub(": ", ":\n", ttl, fixed = TRUE)   # two-line title: break after the colon
 p <- if (exists("paint_style")) paint_style(paint_calls(as.data.frame(calls[, .(name, chr, start_bp, end_bp, state, method)]), track = "method"), title = ttl) else
   paint_calls(as.data.frame(calls[, .(name, chr, start_bp, end_bp, state, method)]), track = "method") + labs(x = NULL, title = ttl) + theme(strip.text.y.left = element_text(angle = 0, hjust = 1, size = 12, face = "bold"), axis.text.y.right = element_text(size = 12, face = "bold"))
 ggsave(out, p, width = 14, height = max(6, 0.9 * length(ordn) * 0.75 + 2), dpi = 150, limitsize = FALSE); cat("wrote", out, "\n")

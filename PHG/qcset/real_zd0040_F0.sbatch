@@ -36,6 +36,6 @@ echo "labels: $(wc -l < $OUT/labels.tsv)"
 echo "== paint (F=0) $(date)"
 conda activate /share/maize/frodrig4/conda/env/nilhmm; export NILHMM_BIN=$C/nilhmm/bin
 Rscript $C/PHG/analysis/paint_phg_reads_old_vs_new.R $U/rtiger_v4/rtiger_poolseq_v4_r500_chr10_Zd0040.csv $OUT/old $OUT/new $DN \
-  "$(printf 'Zd.0040_P1 BC2S3 pools, chr10 \u2014 PHG at F=0 (pool setting):\nold unfiltered reads vs MAPQ20 reads, vs RTIGER')" $OUT/Zd0040_F0_old_vs_mapq20.png $OUT/labels.tsv
+  "Zd.0040_P1 BC2S3 pools, chr10 - PHG at F=0 (pool setting): old unfiltered reads vs MAPQ20 reads, vs RTIGER" $OUT/Zd0040_F0_old_vs_mapq20.png $OUT/labels.tsv
 cp -f $OUT/Zd0040_F0_old_vs_mapq20.png $Z/results/qcset_designB/chr10/results_for_laptop/ 2>/dev/null || { mkdir -p $Z/results/qcset_designB/chr10/results_for_laptop/real_F0; cp -f $OUT/Zd0040_F0_old_vs_mapq20.png $Z/results/qcset_designB/chr10/results_for_laptop/real_F0/; }
 echo "[real_zd0040_F0] done -> $OUT"
