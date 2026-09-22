@@ -130,13 +130,21 @@ RG at align).
 - Keep the B73 control pool as post-processing only (zero class / artifact veto), not in CRISP's contingency test — as decided 2026-09-18.
 
 ## 8. Steps (user's names, 2026-09-21; each waits for go; short QOS). chr10 pilot = Gigi + TIL18, fully simulated.
-1. **breakpoint_sim** — simulate_family (BC2S3, 10 lines) + simulate_nil (30 BC1 plants → 5 pools) on the TeoNAM-native v5 map → segments + pool dosage BED per pool.
-   Script: `agent/suggested_script_20260921_130015_qcsetB_breakpoint_sim_teonam_map.sh`; output `results/qcset_designB/chr10/breakpoint_sim/`.
-2. **alignment_sim** — wgsim chr10 donor reads (Gigi, TIL18) + B73 v5 reads (shared); ALIGN to whole B73; partition by read name into slices.
-3. **build_founder_gvcf** — PERFECT founder: existing `crisp_bench/{Gigi,TIL18}_vs_B73_chr10_snps.tsv` restricted to the union BED → gVCF (the answer key; no anchorwave needed for these two).
-4. **read_mixing** — BC1 pools (per-tract k/12), sweep samples (per-tract REF/HET/ALT, 6 λ × 10 lines), witness = merged sweep, B73 control = real CRAM.
-5. **variant_discovery** — CRISP → witness veto → step 4 → founders A, A+B.
-6. **imputation** — imputation_PHG (DB + two-founder exports + map-kmers + find-paths against A, A+B, PERFECT); imputation_RTIGER (tier-A sites).
-7. **benchmarking** — discovery confusion by pool dosage; mismatch per λ × genotype class × caller × founder; breakpoint offset.
-8. **chr_painting** — truth / RTIGER / PHG-A / PHG-A+B / PHG-PERFECT lanes per line → `agent/qcset_designB_results/`.
+Code: `PHG/qcset/` (one script pair per step, README there). State as of 2026-09-21 20:35 (details: `agent/handover_20260921_203500_simulation_benchmark.md`).
+1. **breakpoint_sim** — **DONE** (job 908589): simulate_family BC2S3 **10 families x 1 sib** (each line from its own BC1; 2 x 5 = job 908526 gave all-REF chr10, discarded)
+   + simulate_nil 30 BC1 plants → 5 pools, TeoNAM-native v5 map → `results/qcset_designB/chr10/breakpoint_sim/` (segments, `bc1_pool<p>_dosage.bed`).
+   Result: 6/10 lines carry donor (0.3–76 Mb); REF 0.868 / ALT 0.131; pools k3 = 47% of chr, k4–6 = 38%.
+2. **alignment_sim** — RUNNING (jobs 908596 tasks 0-5, 908912 tasks 6-8): wgsim 2x150 from the pilot's chr10 FASTAs, ALIGN to whole B73 (minibwa -x sr, MAPQ20), RG = source.
+   Sources sized by the read_mixing demand table (65 disjoint samples/founder need up to 30.5x donor and 86x B73 at one locus): **donor 2 x 22x, B73 5 x 20x**.
+   B73 slices keep 86% at MAPQ20 (9 min each); TIL18 keeps 43% (28 min). No separate partition step: disjointness is enforced in read_mixing.
+3. **build_founder_gvcf** — written (`build_founder_gvcf.py`): PERFECT founder = `crisp_bench/{Gigi,TIL18}_vs_B73_chr10_snps.tsv` ∩ lowcopy BED → haploid gVCF in the pilot founder format + `.alt.tsv` truth allele set.
+4. **read_mixing** — written (`read_mixing.py`, pysam now in the assembly env): one walk per source CRAM, exclusive qname-hash assignment on a per-tract demand table
+   (pool k/12, sweep REF/HET/ALT per λ), lowcopy ± 1 kb; merge writes **one @RG per sample** (CRISP splits samples by RG); witness = merged sweep, B73 control = real CRAM.
+   Unit test on Gigi_pool1 (`check_pool_mixing.sh`) before the full walk.
+5. **variant_discovery** — written: CRISP (5 pools + witness, -p 12, lowcopy BED; B73 control NOT in CRISP) → witness veto → step 4 → founders A, A+B.
+6. **imputation** — written: imputation_PHG (DB per founder with A / A+B / PERFECT pseudo-assemblies, two-founder graphs, 60 sweep samples, 0.9991 / 0.86 / min-reads 1);
+   imputation_RTIGER (pileup at A / A+B / PERFECT alleles, variable sites, rigidity 500).
+7. **benchmarking** — written: discovery confusion by cause (no CRISP record / vetoed / below tier / single pool) and by pool dosage, false alleles; mismatch per λ × class × caller × variant; breakpoint offset.
+8. **chr_painting** — written: truth / RTIGER A / PHG-A / PHG-A+B / PHG-PERFECT lanes per line per λ → `results_for_laptop/` → `agent/qcset_designB_results/`.
+CodeRabbit: steps 1–3 reviewed (2 findings fixed); steps 4–8 commits pending review (free-tier rate limit).
 Later (real-read founders): downloads RIL003/RIMH001 (cancelled 2026-09-21, partial R1 kept; EBI was down — NCBI S3 route as fallback), anchorwave chr10 for TIL11 / RIL003 / RIMHU001.
