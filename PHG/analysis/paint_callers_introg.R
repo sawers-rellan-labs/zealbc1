@@ -29,7 +29,13 @@ shared <- merge(hvhap(file.path(PHV,"B73.h.vcf")), hvhap(file.path(PHV,paste0(DN
 phg <- rbindlist(lapply(sel, function(s){ p<-list.files(PPAR, pattern=paste0("^", s, "_.*imputed_parents\\.txt$"), full.names=TRUE); if(!length(p)) return(NULL)
   x<-fread(p[1]); setnames(x,1:5,c("chr","start","end","p1","p2")); x<-x[chr!="chrom"]; x[,`:=`(start=as.integer(start),end=as.integer(end))]
   x[, state:=as.integer(!startsWith(p1,"B73"))+as.integer(!startsWith(p2,"B73"))]; x[start %in% shared|(start-1L)%in%shared, state:=NA_integer_]
-  x<-x[!is.na(state)][order(start)]; x[, .(name=s, chr=10L, start_bp=start, end_bp=end, state, method="PHG")] }))
+  x<-x[!is.na(state)][order(start)]; if(!nrow(x)) return(NULL)
+  x[, end:=c(start[-1], end[.N])]; x[, run:=rleid(state)]              # RLE bridging the no-call ranges -> continuous segments
+  y<-x[, .(start_bp=min(start), end_bp=max(end), state=state[1], n=.N), by=run]
+  for (it in 1:3){ sg<-which(y$n==1); if(!length(sg)||nrow(y)<2) break
+    y[sg, state:=ifelse(sg>1, y$state[pmax(sg-1,1)], y$state[pmin(sg+1,nrow(y))])]; y[, run:=rleid(state)]
+    y<-y[, .(start_bp=min(start_bp), end_bp=max(end_bp), state=state[1], n=sum(n)), by=run] }
+  y[, .(name=s, chr=10L, start_bp, end_bp, state, method="PHG")] }))
 d <- rbind(rtt, phg, nnil, bbnil)
 lb <- fread(LAB, header=FALSE, col.names=c("sample","label")); m<-setNames(lb$label, lb$sample); rel<-function(v) ifelse(v %in% names(m), m[v], v)
 ordn <- rel(c(teo[f>thr][order(-f)]$name, B73)); d[, name := rel(name)]
