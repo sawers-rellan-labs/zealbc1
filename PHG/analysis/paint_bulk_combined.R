@@ -24,24 +24,23 @@ phg_seg <- function(DN){ g <- file.path(W, paste0("graph_", DN)); hv <- file.pat
       y[single, state := ifelse(single>1, y$state[pmax(single-1,1)], y$state[pmin(single+1,nrow(y))])]; y[, run:=rleid(state)]
       y <- y[, .(start_bp=min(start_bp), end_bp=max(end_bp), state=state[1], n=sum(n)), by=run] }
     y[, .(line=parse_line(nm), lambda=parse_lam(nm), start_bp, end_bp, state)] })) }
-phgA <- phg_seg(paste0(F,"_A")); phgP <- phg_seg(paste0(F,"_PERFECT"))
+phgA <- phg_seg(paste0(F,"_A"))
 rt <- fread(list.files(file.path(W,"rtiger",paste0(F,"_A")), pattern="rtiger_poolseq_.*\\.csv$", full.names=TRUE)[1])
 rt <- rt[chr==10, .(line=parse_line(name), lambda=parse_lam(name), start_bp=as.integer(start_bp), end_bp=as.integer(end_bp), state)]
 rows <- list()
 for (lam in lams) for (ln in introg){
   lab <- sprintf("%s %.2gx", ln, lam)
-  rows[[paste(lab,"t")]] <- bt[name==ln, .(name=lab, chr=10L, start_bp, end_bp, state=state3, method="truth (k/12)")]
-  rows[[paste(lab,"r")]] <- rt[line==ln & abs(lambda-lam)<1e-9, .(name=lab, chr=10L, start_bp, end_bp, state, method="RTIGER A")]
-  rows[[paste(lab,"a")]] <- phgA[line==ln & abs(lambda-lam)<1e-9, .(name=lab, chr=10L, start_bp, end_bp, state, method="PHG A")]
-  rows[[paste(lab,"p")]] <- phgP[line==ln & abs(lambda-lam)<1e-9, .(name=lab, chr=10L, start_bp, end_bp, state, method="PHG PERFECT")]
+  rows[[paste(lab,"t")]] <- bt[name==ln, .(name=lab, chr=10L, start_bp, end_bp, state=state3, method="truth")]
+  rows[[paste(lab,"r")]] <- rt[line==ln & abs(lambda-lam)<1e-9, .(name=lab, chr=10L, start_bp, end_bp, state, method="RTIGER")]
+  rows[[paste(lab,"a")]] <- phgA[line==ln & abs(lambda-lam)<1e-9, .(name=lab, chr=10L, start_bp, end_bp, state, method="PHG")]
 }
 d <- rbindlist(rows)
 lvls <- as.vector(t(outer(lams, introg, function(l,n) sprintf("%s %.2gx", n, l))))   # grouped by coverage: all lam1 lines, then lam2
 lvls <- unlist(lapply(lams, function(l) sprintf("%s %.2gx", introg, l)))
 d[, name := factor(name, levels = lvls)]
-d[, method := factor(method, levels = c("truth (k/12)","RTIGER A","PHG A","PHG PERFECT"))]
+d[, method := factor(method, levels = c("truth","RTIGER","PHG"))]
 p <- paint_style(paint_calls(as.data.frame(d[, .(name, chr, start_bp, end_bp, state, method)]), track="method"),
-                 title = sprintf("%s 6-plant bulk, introgressed lines, chr10 — grouped by coverage", F),
-                 subtitle = "lanes: truth k/12 (HET = segregating 0<k<12) | RTIGER poolseq | PHG founder A | PHG PERFECT")
-ggsave(out, p, width = 14, height = paint_height(length(introg) * length(lams), 4), dpi = 150, limitsize = FALSE)
+                 title = sprintf("%s 6-plant pool, simulated at 1.2 and 0.05x, chr10", F),
+                 subtitle = "truth HET = still-segregating region (0<k<12) | RTIGER poolseq | PHG lowcopy graph")
+ggsave(out, p, width = 14, height = paint_height(length(introg) * length(lams), 3), dpi = 150, limitsize = FALSE)
 cat("wrote", out, "\n")
