@@ -20,7 +20,10 @@ source "$(conda info --base)/etc/profile.d/conda.sh"; conda activate "${CONDA_EN
 export TMPDIR=$Z/work/tmp_${SLURM_JOB_ID}; mkdir -p "$TMPDIR" "$OUT"; trap 'rm -rf "$TMPDIR"' EXIT
 merge_one() {   # dest -> CRAM from its parts (coordinate-sorted inputs; merge keeps all @RG)
   d=$1; parts=("$IN/$d".*.bam); [ -e "${parts[0]}" ] || { echo "no parts for $d" >&2; return 1; }
-  samtools merge -f -@ 2 -O BAM -o "$TMPDIR/$d.bam" "${parts[@]}"
+  samtools merge -f -@ 2 -O BAM -o "$TMPDIR/$d.merged.bam" "${parts[@]}"
+  # ONE read group per sample: CRISP splits a file into one sample per @RG, which would break -p 12 pooling. Source provenance
+  # (which slice each read came from) stays in read_mixing/<F>/assigned_counts.tsv.
+  samtools addreplacerg -r "ID:$d" -r "SM:$d" -r "PL:ILLUMINA" -m overwrite_all -o "$TMPDIR/$d.bam" "$TMPDIR/$d.merged.bam"; rm -f "$TMPDIR/$d.merged.bam"
   samtools view -T "$REF" -C -@ 2 -o "$OUT/$d.cram" "$TMPDIR/$d.bam"; samtools index "$OUT/$d.cram"
   samtools flagstat "$OUT/$d.cram" > "$OUT/$d.flagstat.txt"; rm -f "$TMPDIR/$d.bam"
   echo "$d: $(grep -m1 'primary mapped' "$OUT/$d.flagstat.txt" | cut -d' ' -f1) reads"
@@ -30,7 +33,8 @@ dests=$(tail -n +2 "$IN/samples.tsv" | cut -f1)
 echo "$dests" | xargs -P 4 -I{} bash -c 'merge_one {}'
 # witness = merge of the sweep samples (intended overlap with the genotyped lines)
 sweep=$(tail -n +2 "$IN/samples.tsv" | awk -F'\t' '$2 == "sweep" {print "'"$OUT"'/" $1 ".cram"}')
-samtools merge -f -@ 4 -O BAM -o "$TMPDIR/w.bam" $sweep
+samtools merge -f -@ 4 -O BAM -o "$TMPDIR/w.merged.bam" $sweep
+samtools addreplacerg -r "ID:${F}_witness" -r "SM:${F}_witness" -r "PL:ILLUMINA" -m overwrite_all -o "$TMPDIR/w.bam" "$TMPDIR/w.merged.bam"
 samtools view -T "$REF" -C -@ 2 -o "$OUT/${F}_witness.cram" "$TMPDIR/w.bam"; samtools index "$OUT/${F}_witness.cram"
 samtools flagstat "$OUT/${F}_witness.cram" > "$OUT/${F}_witness.flagstat.txt"
 ln -sf "$B73_CONTROL" "$OUT/B73_control.cram"; ln -sf "$B73_CONTROL.crai" "$OUT/B73_control.cram.crai"

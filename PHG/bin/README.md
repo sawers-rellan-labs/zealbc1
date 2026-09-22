@@ -10,3 +10,5 @@ Moved under git 2026-09-21 from `ZEAL/results/pilot_1B_chr10/` on hazel (code mo
 | `reads_per_bin.py` | diagnostics | informative reads per line×range at tier-A sites; lowcopy vs fixed bins |
 | `aligned_vs_informative.py` | diagnostics | bedcov reads vs PHG k-mer-mapped pairs per range (units differ: reads vs pairs, all vs MAPQ20) |
 Paint/simulation helpers: `../analysis/`. Run recipes (sbatch bodies) are in the plans under `docs/` and the pilot run log `agent/pilot_1B_chr10_runlog_20260917.md`.
+| `veto_witness.py` | witness veto | keep CRISP records with >= 1 ALT read in the witness (merged BC2S3) pool — production §3 (was `filter_bc2s3pool.py` on hazel) |
+| `covered_blocks.sh` | step 5 helper | depth-based covered BED over the lowcopy ranges (summed pool depth >= 8) for founder reference blocks |
