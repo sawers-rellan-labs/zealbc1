@@ -20,7 +20,7 @@ truth_alt <- fread(file.path(Q, "build_founder_gvcf", paste0(F, "_PERFECT.g.vcf.
 vd <- file.path(Q, "variant_discovery", F)
 vcf_pos <- function(f) { x <- fread(cmd = sprintf("zcat %s | grep -v '^#' | cut -f1,2,4,5", shQuote(f)), col.names = c("chr", "pos", "ref", "alt")); x[chr == "chr10"] }
 crisp_all <- vcf_pos(file.path(vd, "crisp_all.vcf.gz")); crisp_vet <- vcf_pos(file.path(vd, "crisp_vetoed.vcf.gz"))
-sites <- fread(file.path(vd, "step4", paste0(F, ".sites.tsv.gz")))[chrom == "chr10"]
+sites <- fread(cmd = sprintf("zcat %s", shQuote(file.path(vd, "step4", paste0(F, ".sites.tsv.gz")))))[chrom == "chr10"]   # no R.utils in the env
 fA  <- fread(file.path(vd, "founders", paste0(F, "_A.g.vcf.alt.tsv")),  select = 1:4, col.names = c("chr", "pos", "ref", "alt"))   # step 5 writes 6 cols (+LLR, tier)
 fAB <- fread(file.path(vd, "founders", paste0(F, "_AB.g.vcf.alt.tsv")), select = 1:4, col.names = c("chr", "pos", "ref", "alt"))
 # per truth allele: pool dosage vector, number of pools carrying it, sum k; carried by any sweep line (witness can see it)?
