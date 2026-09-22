@@ -31,10 +31,9 @@ for (lam in lams) {
   tr <- truth[, .(name, chr = CHR, start_bp, end_bp, state, method = "truth")]
   d <- rbind(tr, cl); d[, name := factor(name, levels = ordn)]
   d[, method := factor(method, levels = c("truth", "RTIGER A", "PHG A", "PHG AB", "PHG PERFECT"))]
-  p <- paint_calls(as.data.frame(d[, .(name, chr, start_bp, end_bp, state, method)]), track = "method") +
-    labs(x = "chr10 position (Mb)", title = sprintf("%s founder, simulated BC2S3 lines at %gx, chr10", F, lam),
-         subtitle = "lanes: truth | RTIGER poolseq (tier A) | PHG two-founder graph with founder A / A+B / PERFECT (stay 0.9991, F 0.86, min-reads 1)") +
-    theme(strip.text.y.left = element_text(angle = 0, hjust = 1, size = 9, face = "bold"))
-  f <- file.path(out, sprintf("%s_lam%g_painting.png", F, lam)); ggsave(f, p, width = 14, height = 1.6 * length(lines) + 1.5, dpi = 130, limitsize = FALSE)
+  p <- paint_style(paint_calls(as.data.frame(d[, .(name, chr, start_bp, end_bp, state, method)]), track = "method"),
+                   title = sprintf("%s founder, simulated BC2S3 lines at %gx, chr10", F, lam),
+                   subtitle = "lanes: truth | RTIGER poolseq (tier A) | PHG founder A / A+B / PERFECT (stay 0.9991, F 0.86, min-reads 1)")
+  f <- file.path(out, sprintf("%s_lam%g_painting.png", F, lam)); ggsave(f, p, width = 14, height = paint_height(length(lines), 5), dpi = 150, limitsize = FALSE)
   log_info("[chr_painting] %s", f)
 }

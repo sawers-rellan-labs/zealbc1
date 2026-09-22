@@ -2,6 +2,8 @@
 # paint_bulk — 6-plant-bulk arm: per line per lambda, lanes truth(k/12 as 3-colour) / RTIGER / PHG-A / PHG-PERFECT.
 # Usage: paint_bulk.R <founder> <Q> <W> <out_prefix> [lambdas]
 suppressPackageStartupMessages({ library(nilHMM); library(data.table); library(ggplot2) })
+.bin <- dirname(sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE)[1]))
+source(file.path(.bin, "..", "qcset", "qcset_io.R"))
 a <- commandArgs(TRUE); F <- a[1]; Q <- a[2]; W <- a[3]; out <- a[4]
 lams <- as.numeric(strsplit(if (length(a) >= 5) a[5] else "0.05,0.1,0.2,0.4,0.8,1.2", ",")[[1]]); CHRLEN <- 152435371L
 parse_line <- function(s) sub(paste0("^", F, "_"), "", sub("_lam.*$", "", s))
@@ -32,9 +34,8 @@ for (lam in lams){
   tr <- bt[, .(name, chr=10L, start_bp, end_bp, state=state3, method="truth (k/12)")]
   d <- rbind(tr, cl)[name %in% ordn]; d[, name := factor(name, levels=ordn)]
   d[, method := factor(method, levels=c("truth (k/12)","RTIGER A","PHG A","PHG PERFECT"))]
-  p <- paint_calls(as.data.frame(d[, .(name, chr, start_bp, end_bp, state, method)]), track="method") +
-    labs(x="chr10 position (Mb)", title=sprintf("%s 6-plant BULK (k/12), simulated at %gx, chr10", F, lam),
-         subtitle="lanes: truth k/12 (HET=segregating 0<k<12) | RTIGER poolseq | PHG founder A | PHG PERFECT") +
-    theme(strip.text.y.left=element_text(angle=0,hjust=1,size=9,face="bold"))
-  f <- sprintf("%s_lam%g.png", out, lam); ggsave(f, p, width=14, height=1.5*length(ordn)+1.5, dpi=130, limitsize=FALSE); cat("wrote", f, "\n")
+  p <- paint_style(paint_calls(as.data.frame(d[, .(name, chr, start_bp, end_bp, state, method)]), track="method"),
+                   title=sprintf("%s 6-plant BULK (k/12), simulated at %gx, chr10", F, lam),
+                   subtitle="lanes: truth k/12 (HET = segregating 0<k<12) | RTIGER poolseq | PHG founder A | PHG PERFECT")
+  f <- sprintf("%s_lam%g.png", out, lam); ggsave(f, p, width=14, height=paint_height(length(ordn), 4), dpi=150, limitsize=FALSE); cat("wrote", f, "\n")
 }

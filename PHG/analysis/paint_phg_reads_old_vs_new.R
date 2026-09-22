@@ -21,9 +21,11 @@ if (!is.na(rt_f) && rt_f != "NA") { rt <- fread(rt_f)[chr == 10, .(name, chr = 1
 teo <- calls[method == levels(factor(calls$method))[1], .(teo = sum((end_bp - start_bp) * (state > 0))), by = name]; ordn <- teo[order(-teo)]$name
 calls <- calls[name %in% ordn]; calls[, name := factor(name, levels = ordn)]
 calls[, method := factor(method, levels = c("RTIGER poolseq", "PHG old reads (bwa, unfiltered)", "PHG MAPQ20 reads (minibwa CRAM)"))]
-p <- paint_calls(as.data.frame(calls[, .(name, chr, start_bp, end_bp, state, method)]), track = "method") +
-  labs(x = "chr10 position (Mb)", title = ttl) + theme(strip.text.y.left = element_text(angle = 0, hjust = 1, size = 9, face = "bold"))
-ggsave(out, p, width = 14, height = 1.1 * length(ordn) + 1.5, dpi = 130, limitsize = FALSE); cat("wrote", out, "\n")
+.bin_pt <- dirname(sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE)[1]))
+src <- file.path(.bin_pt, "..", "qcset", "qcset_io.R"); if (file.exists(src)) source(src)
+p <- if (exists("paint_style")) paint_style(paint_calls(as.data.frame(calls[, .(name, chr, start_bp, end_bp, state, method)]), track = "method"), title = ttl) else
+  paint_calls(as.data.frame(calls[, .(name, chr, start_bp, end_bp, state, method)]), track = "method") + labs(x = NULL, title = ttl) + theme(strip.text.y.left = element_text(angle = 0, hjust = 1, size = 12, face = "bold"), axis.text.y.right = element_text(size = 12, face = "bold"))
+ggsave(out, p, width = 14, height = max(6, 0.9 * length(ordn) * 0.75 + 2), dpi = 150, limitsize = FALSE); cat("wrote", out, "\n")
 # range-level summary: fraction of called ranges non-B73 and number of segments per line, old vs new
 s <- calls[method != "RTIGER poolseq", .(segments = .N, teo_Mb = sum((end_bp - start_bp) * (state > 0)) / 1e6), by = .(method, name)]
 print(dcast(s, name ~ method, value.var = c("segments", "teo_Mb")), nrows = 60)

@@ -32,3 +32,18 @@ state_at <- function(seg, keycol, key, pos) { s <- seg[get(keycol) == key][order
 # rasterise a segment track (start_bp/end_bp/state, one sample) to ranges (start/end BED): state at the range midpoint
 raster <- function(seg, ranges) { s <- seg[order(start_bp)]; mid <- (ranges$start + ranges$end) %/% 2L
   i <- findInterval(mid, s$start_bp); st <- ifelse(i == 0L, NA_integer_, s$state[pmax(i, 1L)]); st[!is.na(st) & mid > s$end_bp[pmax(i, 1L)]] <- NA_integer_; as.integer(st) }
+
+# paint_style: harmonised label/title sizes for all QC-set paintings (matches nilhmm-paper
+# scripts/fig_coverage_sweep_chr_paint.R: strip/lane labels 12 bold, no x axis, title 15 / subtitle 12).
+paint_style <- function(p, title = NULL, subtitle = NULL) {
+  suppressPackageStartupMessages(library(ggplot2))
+  p + labs(x = NULL, title = title, subtitle = subtitle) +
+    theme(plot.title = element_text(size = 15, face = "bold"),
+          plot.subtitle = element_text(size = 12),
+          legend.position = "bottom", legend.title = element_text(size = 12), legend.text = element_text(size = 12),
+          axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank(), axis.line.x = element_blank(),
+          strip.text.y.left = element_text(angle = 0, hjust = 1, size = 12, face = "bold", lineheight = 0.85),
+          axis.text.y.right = element_text(size = 12, face = "bold"))
+}
+# consistent canvas height: ~0.9 in per line-block + header
+paint_height <- function(n_lines, lanes) max(6, 0.9 * n_lines * (lanes / 4) + 2)
