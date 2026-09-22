@@ -15,7 +15,7 @@ qname and the fragment start min(pos, mpos), so a pair is never split. Reads are
 --plan-only computes the demand table (max Σ target / nominal per source) from the breakpoint tables and exits: run it
 BEFORE aligning to size the sources (demand > 1 = oversubscribed, the walk refuses to run).
 """
-import argparse, bisect, csv, hashlib, os, sys, time
+import argparse, bisect, csv, hashlib, os, re, sys, time
 from collections import defaultdict
 
 ap = argparse.ArgumentParser()
