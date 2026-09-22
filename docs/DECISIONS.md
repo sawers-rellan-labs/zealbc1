@@ -17,3 +17,4 @@
 | 2026-09-21 | B73 checks only (no NC358) as batch-2 controls; painting label `B73_P<Plot_id>`, treated like the batch-1 `B73_check` rows | user | q_nilhmm_bc2s3_batch2.sh |
 | 2026-09-21 | pool_run 4E/4F/4G on compute/normal (not short QOS): DEMUX 4E ~2.1 h, BC1 ALIGN 1.3-4 h measured on pool 1B | exceeds the 2 h cap | agent/depth_contribution_Zv0490/step1_demux_proposal.md |
 | 2026-09-21 | breakpoint_sim: 10 BC2S3 lines = 10 families x 1 sib (each line from its own BC1/BC2), not 2 x 5 | 2x5 made all 10 lines depend on two BC2 chromosomes → all chr10 REF, nothing to score | PHG/qcset/breakpoint_sim.sbatch |
+| 2026-09-21 | QC set: all 65 samples per founder draw disjoint reads → sources sized by the read_mixing demand table (donor 2 x 22x, B73 5 x 20x) | max demand 30.5x donor / 86x B73 at one locus (5 pools x 15x + sweep Σλ 3.75x x 10 lines) | PHG/qcset/read_mixing.py --plan-only |
