@@ -24,6 +24,8 @@ ap.add_argument('--breakpoints', required=True, help='breakpoint_sim output dir'
 ap.add_argument('--bed', required=True, help='lowcopy ranges BED'); ap.add_argument('--flank', type=int, default=1000)
 ap.add_argument('--chrom', default='chr10'); ap.add_argument('--chrlen', type=int, default=152435371)
 ap.add_argument('--lambdas', default='0.05,0.1,0.2,0.4,0.8,1.2'); ap.add_argument('--pool-depth', type=float, default=15.0)
+ap.add_argument('--sweep-source', choices=['single','bulk'], default='single', help="single = bc2s3_truth_segments (0/1/2); bulk = bc2s3_bulk_<line>_dosage.bed (k/12, 6-plant field-plot bulk)")
+ap.add_argument('--bulk-dir', help='breakpoint_sim_bulk output dir (defaults to <breakpoints>/../breakpoint_sim_bulk)')
 ap.add_argument('--pool-n', type=int, default=12, help='haploid genomes per pool (6 plants)')
 ap.add_argument('--donor-cram', nargs='*', default=[]); ap.add_argument('--donor-depth', type=float, default=22.0)
 ap.add_argument('--n-donor', type=int, help='number of donor slices in the design (denominator); default = files given')
@@ -42,18 +44,31 @@ def read_tsv(path):
 
 # --- destinations: list of (name, kind, tracts) with tracts = sorted [(start0, end0, donor_share)] covering the chromosome
 dests = []
-seg = [r for r in read_tsv(os.path.join(A.breakpoints, 'bc2s3_truth_segments.tsv')) if r['chr'] in (CH, chrnum)]
-lines = sorted({r['name'] for r in seg})
-for ln in lines:
-    tr = sorted((int(r['start_bp']) - 1, int(r['end_bp']), int(r['state']) / 2.0) for r in seg if r['name'] == ln)
-    # segments carry marker coordinates: extend the first/last to the chromosome ends so every read has a tract
-    tr[0] = (0, tr[0][1], tr[0][2]); tr[-1] = (tr[-1][0], A.chrlen, tr[-1][2])
-    for lam in lambdas: dests.append((f"{A.founder}_{ln}_lam{lam:g}", 'sweep', lam, tr))
-p = 1
-while os.path.exists(os.path.join(A.breakpoints, f'bc1_pool{p}_dosage.bed')):
-    tr = sorted((int(x[1]), int(x[2]), int(x[3]) / A.pool_n) for x in (l.split() for l in open(os.path.join(A.breakpoints, f'bc1_pool{p}_dosage.bed'))) if x[0] == CH)
-    dests.append((f"{A.founder}_pool{p}", 'pool', A.pool_depth, tr)); p += 1
-if not lines or p == 1: sys.exit(f"no BC2S3 segments / pool BEDs for {CH} in {A.breakpoints}")
+if A.sweep_source == 'single':
+    seg = [r for r in read_tsv(os.path.join(A.breakpoints, 'bc2s3_truth_segments.tsv')) if r['chr'] in (CH, chrnum)]
+    lines = sorted({r['name'] for r in seg})
+    for ln in lines:
+        tr = sorted((int(r['start_bp']) - 1, int(r['end_bp']), int(r['state']) / 2.0) for r in seg if r['name'] == ln)
+        tr[0] = (0, tr[0][1], tr[0][2]); tr[-1] = (tr[-1][0], A.chrlen, tr[-1][2])   # extend to chromosome ends
+        for lam in lambdas: dests.append((f"{A.founder}_{ln}_lam{lam:g}", 'sweep', lam, tr))
+    p = 1
+    while os.path.exists(os.path.join(A.breakpoints, f'bc1_pool{p}_dosage.bed')):
+        tr = sorted((int(x[1]), int(x[2]), int(x[3]) / A.pool_n) for x in (l.split() for l in open(os.path.join(A.breakpoints, f'bc1_pool{p}_dosage.bed'))) if x[0] == CH)
+        dests.append((f"{A.founder}_pool{p}", 'pool', A.pool_depth, tr)); p += 1
+    if not lines or p == 1: sys.exit(f"no BC2S3 segments / pool BEDs for {CH} in {A.breakpoints}")
+else:   # bulk: 6-plant field-plot bulks, per-tract dosage k/12; ONLY the sweep samples (pools/witness/founder are reused from the single run)
+    bdir = A.bulk_dir or os.path.join(A.breakpoints, '..', 'breakpoint_sim_bulk')
+    import glob
+    beds = sorted(glob.glob(os.path.join(bdir, 'bc2s3_bulk_*_dosage.bed')))
+    if not beds: sys.exit(f"no bc2s3_bulk_*_dosage.bed in {bdir}")
+    for bed in beds:
+        ln = re.sub(r'^bc2s3_bulk_|_dosage\.bed$', '', os.path.basename(bed))
+        tr = sorted((int(x[1]), int(x[2]), int(x[3]) / A.pool_n) for x in (l.split() for l in open(bed)) if x[0] == CH)
+        if not tr: continue
+        tr[0] = (0, tr[0][1], tr[0][2]); tr[-1] = (tr[-1][0], A.chrlen, tr[-1][2])
+        for lam in lambdas: dests.append((f"{A.founder}_{ln}_lam{lam:g}", 'sweep', lam, tr))
+    lines = sorted({d[0] for d in dests}); p = 2   # p only used for the log line below
+    if not dests: sys.exit(f"no bulk dosage tracts for {CH}")
 if A.only:
     keep = set(A.only.split(',')); dests = [d for d in dests if d[0] in keep]
     if not dests: sys.exit(f"--only matched nothing")
