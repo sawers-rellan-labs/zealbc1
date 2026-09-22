@@ -120,8 +120,11 @@ def walk(path, src):
                 el = (time.time() - t0) / 60; print(f"[read_mixing] {tag}: {n / 1e6:.0f} M reads | kept {kept / 1e6:.2f} M | {el:.1f} min", flush=True)
             if r.is_unmapped or r.is_secondary or r.is_supplementary: continue
             rs, re_ = r.reference_start, r.reference_end or r.reference_start + 1
-            if not in_lowcopy(rs, re_): continue
-            x = rs if (r.mate_is_unmapped or r.next_reference_id != r.reference_id) else min(rs, r.next_reference_start)
+            if r.mate_is_unmapped or r.next_reference_id != r.reference_id or r.template_length == 0:
+                x, lo, hi = rs, rs, re_
+            else:   # fragment span from the template: identical for both mates, so the pair is kept or dropped together
+                x = min(rs, r.next_reference_start); lo, hi = x, x + abs(r.template_length)
+            if not in_lowcopy(lo, hi): continue
             i = bisect.bisect_right(cstart, x) - 1
             u = uniform(r.query_name, src); c = cum[src][i]
             j = bisect.bisect_right(c, u)

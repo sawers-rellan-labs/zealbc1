@@ -33,7 +33,7 @@ for DN in "${VARIANTS[@]}"; do
   echo "sites $(wc -l < pos.tsv) | with >= 1 ALT read across the sweep: $(wc -l < variable_sites.txt)"
   awk -F'\t' 'NR == FNR {v[$1] = 1; next} FNR == 1 || ($3 in v)' variable_sites.txt counts.tsv > counts_variable.tsv
   conda activate "${R_ENV:-/share/maize/frodrig4/conda/env/nilhmm}"
-  Rscript "$C/PHG/bin/rtiger_poolseq.R" counts_variable.tsv "rtiger_poolseq_${DN}_r${RIG}_chr10.csv" "$RIG" "$DN" 2>&1 | grep -E "INFO|WARN|ERROR|^ *[0-9]:|state"
+  Rscript "$C/PHG/bin/rtiger_poolseq.R" counts_variable.tsv "rtiger_poolseq_${DN}_r${RIG}_chr10.csv" "$RIG" "$DN" 2>&1 | { grep -E "INFO|WARN|ERROR|^ *[0-9]:|state" || [ $? -eq 1 ]; }
   conda activate "${CONDA_ENV:-/share/maize/frodrig4/conda/env/assembly}"
 done
 echo "[imputation_RTIGER] $F done $(date)"

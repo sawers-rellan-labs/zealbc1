@@ -21,8 +21,8 @@ vd <- file.path(Q, "variant_discovery", F)
 vcf_pos <- function(f) { x <- fread(cmd = sprintf("zcat %s | grep -v '^#' | cut -f1,2,4,5", shQuote(f)), col.names = c("chr", "pos", "ref", "alt")); x[chr == "chr10"] }
 crisp_all <- vcf_pos(file.path(vd, "crisp_all.vcf.gz")); crisp_vet <- vcf_pos(file.path(vd, "crisp_vetoed.vcf.gz"))
 sites <- fread(file.path(vd, "step4", paste0(F, ".sites.tsv.gz")))[chrom == "chr10"]
-fA  <- fread(file.path(vd, "founders", paste0(F, "_A.g.vcf.alt.tsv")),  col.names = c("chr", "pos", "ref", "alt"))
-fAB <- fread(file.path(vd, "founders", paste0(F, "_AB.g.vcf.alt.tsv")), col.names = c("chr", "pos", "ref", "alt"))
+fA  <- fread(file.path(vd, "founders", paste0(F, "_A.g.vcf.alt.tsv")),  select = 1:4, col.names = c("chr", "pos", "ref", "alt"))   # step 5 writes 6 cols (+LLR, tier)
+fAB <- fread(file.path(vd, "founders", paste0(F, "_AB.g.vcf.alt.tsv")), select = 1:4, col.names = c("chr", "pos", "ref", "alt"))
 # per truth allele: pool dosage vector, number of pools carrying it, sum k; carried by any sweep line (witness can see it)?
 dose_at <- function(pos) sapply(sort(unique(dose$pool)), function(p) { d <- dose[pool == p][order(start)]; i <- findInterval(pos, d$start); d$k[pmax(i, 1L)] })
 K <- dose_at(truth_alt$pos); truth_alt[, `:=`(n_pools_carry = rowSums(K > 0), sum_k = rowSums(K))]
@@ -62,7 +62,10 @@ calls <- list()
 for (DN in VARIANTS) {
   g <- file.path(Q, "imputation_PHG", F, paste0("graph_", DN))
   if (dir.exists(file.path(g, "parents"))) { ph <- read_phg_ranges(g, DN)
-    ph[, rid := ranges$rid[match(start, ranges$start)]]; calls[[paste("PHG", DN)]] <- ph[!is.na(rid), .(sample, rid, call = state, caller = "PHG", variant = DN)] }
+    ph[, rid := ranges$rid[match(start, ranges$start)]]                      # parents start = BED start (0-based)?
+    if (mean(is.na(ph$rid)) > 0.5) ph[, rid := ranges$rid[match(start - 1L, ranges$start)]]   # ... or hVCF POS (1-based)
+    if (mean(is.na(ph$rid)) > 0.05) log_warn("[benchmarking] %s: %.1f%% of PHG ranges did not match a lowcopy range start", DN, 100 * mean(is.na(ph$rid)))
+    calls[[paste("PHG", DN)]] <- ph[!is.na(rid), .(sample, rid, call = state, caller = "PHG", variant = DN)] }
   rc <- list.files(file.path(Q, "imputation_RTIGER", F, DN), pattern = "^rtiger_poolseq_.*\\.csv$", full.names = TRUE)
   if (length(rc)) { rt <- read_rtiger(rc[1])
     calls[[paste("RTIGER", DN)]] <- rt[, .(rid = ranges$rid, call = raster(.SD, ranges)), by = sample][, .(sample, rid, call, caller = "RTIGER", variant = DN)] }
@@ -82,7 +85,7 @@ print(dcast(summ[class != "HET"], caller + variant + class ~ lambda, value.var =
 # breakpoint offset: truth breakpoints (segment boundaries inside the chromosome) vs nearest call boundary of the same sample track
 bk_truth <- truth[, .(bp = end_bp[-.N]), by = name]
 offs <- rbindlist(lapply(names(calls), function(k) { x <- calls[[k]]; x <- x[!is.na(call)]; x <- merge(x, ranges[, .(rid, start, end)], by = "rid")
-  x <- x[order(sample, start)]; x[, chg := c(TRUE, call[-1] != call[-.N]), by = sample]; b <- x[chg == TRUE & seq_len(.N) > 1, .(bp = start), by = sample]
+  x <- x[order(sample, start)]; x[, chg := c(FALSE, call[-1] != call[-.N]), by = sample]; b <- x[chg == TRUE, .(bp = start), by = sample]
   b <- cbind(b, parse_sample(b$sample, F)[, .(line, lambda)]); rbindlist(lapply(split(b, b$sample), function(s) { t <- bk_truth[name == s$line[1]]; if (!nrow(t)) return(NULL)
     data.table(caller = x$caller[1], variant = x$variant[1], sample = s$sample[1], line = s$line[1], lambda = s$lambda[1], truth_bp = t$bp,
                offset_bp = sapply(t$bp, function(p) min(abs(s$bp - p))), n_call_breakpoints = nrow(s)) })) }))

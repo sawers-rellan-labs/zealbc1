@@ -34,7 +34,9 @@ done
 echo "== [0b] sweep reads -> FASTQ for map-kmers  $(date)"
 printf 'sampleName\tfilename\tfilename2\n' > keyfile.tsv
 for s in $(awk -F'\t' 'NR > 1 && $2 == "sweep" {print $1}' "$S/samples.tsv"); do
-  [ -s "reads/${s}_R1.fq.gz" ] || samtools fastq -@ 2 -1 "reads/${s}_R1.fq.gz" -2 "reads/${s}_R2.fq.gz" -0 /dev/null -s /dev/null -n "$S/$s.cram" 2>/dev/null
+  # collate first: a coordinate-sorted CRAM streamed straight into fastq gives R1/R2 files that are NOT in the same order (map-kmers pairs by order)
+  [ -s "reads/${s}_R1.fq.gz" ] || samtools collate -u -O --reference "$Z/reference/B73.fa" "$S/$s.cram" "$TMPDIR/collate_$s" 2>/dev/null \
+    | samtools fastq -n -1 "reads/${s}_R1.fq.gz" -2 "reads/${s}_R2.fq.gz" -0 /dev/null -s /dev/null - 2>/dev/null
   printf '%s\t%s\t%s\n' "$s" "$W/reads/${s}_R1.fq.gz" "$W/reads/${s}_R2.fq.gz" >> keyfile.tsv
 done; echo "sweep samples: $(($(wc -l < keyfile.tsv) - 1))"
 conda activate $Z/envs/jdk21; conda config --prepend envs_dirs $Z/envs 2>/dev/null || true
@@ -58,7 +60,7 @@ for DN in "${VARIANTS[@]}"; do
   for h in "$G"/hvcf/*.h.vcf; do echo "$(basename "$h") records=$(grep -vc '^#' "$h")"; done
   $PHG build-kmer-index --db-path "$DB" --hvcf-dir "$G/hvcf" 2>&1 | grep -E "numOfRanges|Exception" | tail -1
   $PHG map-kmers --hvcf-dir "$G/hvcf" --key-file "$W/keyfile.tsv" -o "$G/readmap" --threads 8 > mapkmers.log 2>&1; echo "map-kmers exit=$? files=$(ls "$G"/readmap/*_readMapping.txt | wc -l)"
-  printf 'sampleName\tfilename\n' > path_key.tsv; for f in "$G"/readmap/*_readMapping.txt; do s=$(basename "$f" _readMapping.txt); printf '%s\t%s\n' "$s" "$f" >> path_key.tsv; done
+  printf 'sampleName\tfilename\n' > path_key.tsv; for f in "$G"/readmap/*_readMapping.txt; do s=$(basename "$f" _readMapping.txt); s=${s%%_R1*}; printf '%s\t%s\n' "$s" "$f" >> path_key.tsv; done   # strip a FASTQ-derived _R1 suffix if map-kmers names by file
   $PHG find-paths --path-keyfile path_key.tsv --hvcf-dir "$G/hvcf" --reference-genome "$REF10" --output-dir "$G/paths" --out-parents-dir "$G/parents" \
     --path-type diploid --prob-same-gamete "${STAY:-0.9991}" --inbreeding-coefficient 0.86 --min-reads 1 --threads 8 > findpaths.log 2>&1; echo "find-paths exit=$? paths=$(ls "$G/paths" | wc -l)"
   $PHG hapid-sample-table --hvcf-dir "$G/hvcf" --output-file "$G/hapid_sample.tsv" 2>&1 | tail -1

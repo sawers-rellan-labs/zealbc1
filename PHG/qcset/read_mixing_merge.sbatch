@@ -30,7 +30,7 @@ merge_one() {   # dest -> CRAM from its parts (coordinate-sorted inputs; merge k
 }
 export -f merge_one; export IN OUT TMPDIR REF
 dests=$(tail -n +2 "$IN/samples.tsv" | cut -f1)
-echo "$dests" | xargs -P 4 -I{} bash -c 'merge_one {}'
+echo "$dests" | xargs -P 4 -I{} bash -c 'set -euo pipefail; merge_one "$1"' _ {}
 # witness = merge of the sweep samples (intended overlap with the genotyped lines)
 sweep=$(tail -n +2 "$IN/samples.tsv" | awk -F'\t' '$2 == "sweep" {print "'"$OUT"'/" $1 ".cram"}')
 samtools merge -f -@ 4 -O BAM -o "$TMPDIR/w.merged.bam" $sweep
