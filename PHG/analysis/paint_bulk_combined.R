@@ -27,19 +27,23 @@ phg_seg <- function(DN){ g <- file.path(W, paste0("graph_", DN)); hv <- file.pat
 phgA <- phg_seg(paste0(F,"_A"))
 rt <- fread(list.files(file.path(W,"rtiger",paste0(F,"_A")), pattern="rtiger_poolseq_.*\\.csv$", full.names=TRUE)[1])
 rt <- rt[chr==10, .(line=parse_line(name), lambda=parse_lam(name), start_bp=as.integer(start_bp), end_bp=as.integer(end_bp), state)]
+# name (left) = line id; lanes (right) = truth once + RTIGER/PHG paired by coverage. Coverage on the right, with the method.
 rows <- list()
-for (lam in lams) for (ln in introg){
-  lab <- sprintf("%s %.2gx", ln, lam)
-  rows[[paste(lab,"t")]] <- bt[name==ln, .(name=lab, chr=10L, start_bp, end_bp, state=state3, method="truth")]
-  rows[[paste(lab,"r")]] <- rt[line==ln & abs(lambda-lam)<1e-9, .(name=lab, chr=10L, start_bp, end_bp, state, method="RTIGER")]
-  rows[[paste(lab,"a")]] <- phgA[line==ln & abs(lambda-lam)<1e-9, .(name=lab, chr=10L, start_bp, end_bp, state, method="PHG")]
+for (ln in introg){
+  rows[[paste(ln,"t")]] <- bt[name==ln, .(name=ln, chr=10L, start_bp, end_bp, state=state3, method="truth")]   # coverage-independent -> once
+  for (lam in lams){
+    rows[[paste(ln,"r",lam)]] <- rt[line==ln & abs(lambda-lam)<1e-9, .(name=ln, chr=10L, start_bp, end_bp, state, method=sprintf("RTIGER %.2gx", lam))]
+    rows[[paste(ln,"a",lam)]] <- phgA[line==ln & abs(lambda-lam)<1e-9, .(name=ln, chr=10L, start_bp, end_bp, state, method=sprintf("PHG %.2gx", lam))]
+  }
 }
 d <- rbindlist(rows)
-lvls <- unlist(lapply(introg, function(ln) sprintf("%s %.2gx", ln, lams)))   # sort by line, then coverage within (1.2x above 0.05x)
-d[, name := factor(name, levels = lvls)]
-d[, method := factor(method, levels = c("truth","RTIGER","PHG"))]
+d[, name := factor(name, levels = introg)]   # left: line id, ordered by introgression size
+method_lvls <- c("truth", as.vector(rbind(sprintf("RTIGER %.2gx", lams), sprintf("PHG %.2gx", lams))))  # truth, then RTIGER/PHG pairs by coverage
+# order: truth, RTIGER 1.2x, RTIGER 0.05x, PHG 1.2x, PHG 0.05x  (methods grouped, coverage within)
+method_lvls <- c("truth", sprintf("RTIGER %.2gx", lams), sprintf("PHG %.2gx", lams))
+d[, method := factor(method, levels = method_lvls)]
 p <- paint_style(paint_calls(as.data.frame(d[, .(name, chr, start_bp, end_bp, state, method)]), track="method"),
                  title = sprintf("%s 6-plant pool, simulated at 1.2 and 0.05x, chr10", F),
                  subtitle = "truth HET = still-segregating region (0<k<12) | RTIGER poolseq | PHG lowcopy graph")
-ggsave(out, p, width = 14, height = paint_height(length(introg) * length(lams), 3), dpi = 150, limitsize = FALSE)
+ggsave(out, p, width = 14, height = paint_height(length(introg), length(method_lvls)), dpi = 150, limitsize = FALSE)
 cat("wrote", out, "\n")
