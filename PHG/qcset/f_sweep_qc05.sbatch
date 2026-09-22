@@ -1,6 +1,6 @@
+#!/bin/bash
 # PHG inbreeding-coefficient (F) sweep on the qc05 pool, founder Gigi_A. find-paths only (F-dependent); reuses the existing
 # read-mappings and graph, so no map-kmers. F = 0.0 .. 1.0 step 0.1, all 6 qc05 coverages.  sbatch f_sweep_qc05.sbatch
-#!/bin/bash
 #SBATCH --job-name=qcB_fsweep
 #SBATCH --account=maize_cpu
 #SBATCH --partition=compute_partners
