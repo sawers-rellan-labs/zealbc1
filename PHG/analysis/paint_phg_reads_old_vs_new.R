@@ -23,6 +23,7 @@ calls <- calls[name %in% ordn]
 if (!is.na(labs_f) && file.exists(labs_f)) { lb <- fread(labs_f, header = FALSE, col.names = c("sample", "label"))
   m <- setNames(lb$label, lb$sample); relab <- function(v) ifelse(v %in% names(m), m[v], v)
   ordn <- relab(ordn); calls[, name := relab(name)] }
+b73 <- grep("^B73", ordn, value = TRUE); ordn <- c(b73, setdiff(ordn, b73))   # pin B73 control on top
 calls[, name := factor(name, levels = ordn)]
 calls[, method := factor(method, levels = c("RTIGER", "PHG old", "PHG MAPQ20"))]
 .bin_pt <- dirname(sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE)[1]))
