@@ -16,7 +16,8 @@ phg <- function(g, lab) {
       y[single, state := ifelse(single > 1, y$state[pmax(single - 1, 1)], y$state[pmin(single + 1, nrow(y))])]; y[, run := rleid(state)]
       y <- y[, .(start_bp = min(start_bp), end_bp = max(end_bp), state = state[1], n = sum(n)), by = run] }
     y[, .(name = nm, chr = 10L, start_bp, end_bp, state, method = lab)] })) }
-calls <- rbind(phg(old, "PHG old"), phg(new, "PHG MAPQ20"))
+if (old == "NONE") { calls <- phg(new, "PHG"); meth_levels <- c("RTIGER", "PHG") } else {
+  calls <- rbind(phg(old, "PHG old"), phg(new, "PHG MAPQ20")); meth_levels <- c("RTIGER", "PHG old", "PHG MAPQ20") }
 if (!is.na(rt_f) && rt_f != "NA") { rt <- fread(rt_f)[chr == 10, .(name, chr = 10L, start_bp, end_bp, state, method = "RTIGER")]; calls <- rbind(rt, calls) }
 teo <- calls[method == "RTIGER", .(teo = sum((end_bp - start_bp) * (state > 0))), by = name]; ordn <- teo[order(-teo)]$name
 calls <- calls[name %in% ordn]
@@ -25,7 +26,7 @@ if (!is.na(labs_f) && file.exists(labs_f)) { lb <- fread(labs_f, header = FALSE,
   ordn <- relab(ordn); calls[, name := relab(name)] }
 b73 <- grep("^B73", ordn, value = TRUE); ordn <- c(b73, setdiff(ordn, b73))   # pin B73 control on top
 calls[, name := factor(name, levels = ordn)]
-calls[, method := factor(method, levels = c("RTIGER", "PHG old", "PHG MAPQ20"))]
+calls[, method := factor(method, levels = meth_levels)]
 .bin_pt <- dirname(sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE)[1]))
 src <- file.path(.bin_pt, "..", "qcset", "qcset_io.R"); if (file.exists(src)) source(src)
 ttl <- sub(": ", ":\n", ttl, fixed = TRUE)   # two-line title: break after the colon
