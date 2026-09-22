@@ -12,3 +12,5 @@ Moved under git 2026-09-21 from `ZEAL/results/pilot_1B_chr10/` on hazel (code mo
 Paint/simulation helpers: `../analysis/`. Run recipes (sbatch bodies) are in the plans under `docs/` and the pilot run log `agent/pilot_1B_chr10_runlog_20260917.md`.
 | `veto_witness.py` | witness veto | keep CRISP records with >= 1 ALT read in the witness (merged BC2S3) pool — production §3 (was `filter_bc2s3pool.py` on hazel) |
 | `covered_blocks.sh` | step 5 helper | depth-based covered BED over the lowcopy ranges (summed pool depth >= 8) for founder reference blocks |
+| `rtiger_poolseq.R` | RTIGER lane | per-line REF/ALT counts at founder sites -> nilHMM call_ancestry(rtiger, BC2S3, rigidity) -> segments CSV (was `rtiger_founder.R` on hazel) |
+| `ad_to_counts.py` | RTIGER lane | bcftools AD table -> counts.tsv (SAMPLE CONTIG POSITION REF_COUNT ALT_COUNT REF_NUC ALT_NUC) |
