@@ -6,7 +6,7 @@ suppressPackageStartupMessages({ library(nilHMM); library(data.table); library(g
 source(file.path(.bin, "..", "qcset", "qcset_io.R"))
 a <- commandArgs(TRUE); F <- a[1]; Q <- a[2]; W <- a[3]; out <- a[4]
 lams <- as.numeric(strsplit(if (length(a) >= 5) a[5] else "0.05,0.1,0.2,0.4,0.8,1.2", ",")[[1]]); CHRLEN <- 152435371L
-parse_line <- function(s) sub(paste0("^", F, "_"), "", sub("_lam.*$", "", s))
+parse_line <- function(s) sub("_L[0-9]+$", "", sub(paste0("^", F, "_"), "", sub("_lam.*$", "", s)))   # pool = plot id
 parse_lam  <- function(s) as.numeric(sub("^.*_lam", "", s))
 # truth: bulk dosage k/12 -> 3-colour (0 REF, 1..11 HET, 12 ALT); one track per plot line
 bt <- fread(file.path(Q, "breakpoint_sim_bulk", "bc2s3_bulk_truth_dosage_segments.tsv"))
@@ -27,11 +27,11 @@ lanes <- list("PHG A"=phg_seg(paste0(F,"_A")), "PHG PERFECT"=phg_seg(paste0(F,"_
 rt <- fread(list.files(file.path(W,"rtiger",paste0(F,"_A")), pattern="rtiger_poolseq_.*\\.csv$", full.names=TRUE)[1])
 rt <- rt[chr==10, .(sample=name, line=parse_line(name), lambda=parse_lam(name), chr=10L, start_bp=as.integer(start_bp), end_bp=as.integer(end_bp), state)]
 lanes[["RTIGER A"]] <- rt
-lines <- sort(unique(bt$name)); teo <- bt[, .(teo=sum((end_bp-start_bp)*(state>0))), by=name]; ordn <- teo[order(-teo)]$name
+bt[, plot := sub("_L[0-9]+$", "", name)]; lines <- sort(unique(bt$plot)); teo <- bt[, .(teo=sum((end_bp-start_bp)*(state>0))), by=plot]; ordn <- teo[order(-teo)]$plot
 for (lam in lams){
   cl <- rbindlist(lapply(names(lanes), function(k){ d <- lanes[[k]][abs(lambda-lam)<1e-9]; if(!nrow(d)) return(NULL); d[, .(name=line, chr=10L, start_bp, end_bp, state, method=k)] }))
   if (!nrow(cl)) next
-  tr <- bt[, .(name, chr=10L, start_bp, end_bp, state=state3, method="truth (k/12)")]
+  tr <- bt[, .(name=plot, chr=10L, start_bp, end_bp, state=state3, method="truth (k/12)")]
   d <- rbind(tr, cl)[name %in% ordn]; d[, name := factor(name, levels=ordn)]
   d[, method := factor(method, levels=c("truth (k/12)","RTIGER A","PHG A","PHG PERFECT"))]
   p <- paint_style(paint_calls(as.data.frame(d[, .(name, chr, start_bp, end_bp, state, method)]), track="method"),

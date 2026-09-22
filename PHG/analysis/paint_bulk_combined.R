@@ -7,10 +7,11 @@ suppressPackageStartupMessages({ library(nilHMM); library(data.table); library(g
 source(file.path(.bin, "..", "qcset", "qcset_io.R"))
 a <- commandArgs(TRUE); F <- a[1]; Q <- a[2]; W <- a[3]; out <- a[4]
 lams <- as.numeric(strsplit(if (length(a) >= 5) a[5] else "1.2,0.05", ",")[[1]])
-parse_line <- function(s) sub(paste0("^", F, "_"), "", sub("_lam.*$", "", s)); parse_lam <- function(s) as.numeric(sub("^.*_lam", "", s))
+parse_line <- function(s) sub("_L[0-9]+$", "", sub(paste0("^", F, "_"), "", sub("_lam.*$", "", s)));   # pool = plot id (drop the sib-1 suffix) parse_lam <- function(s) as.numeric(sub("^.*_lam", "", s))
 bt <- fread(file.path(Q, "breakpoint_sim_bulk", "bc2s3_bulk_truth_dosage_segments.tsv"))
 bt[, state3 := fifelse(state == 0L, 0L, fifelse(state == 12L, 2L, 1L))]
-introg <- bt[, .(teo = sum((end_bp - start_bp) * (state > 0))), by = name][teo > 0][order(-teo)]$name   # lines with any introgression
+bt[, plot := sub("_L[0-9]+$", "", name)]
+introg <- bt[, .(teo = sum((end_bp - start_bp) * (state > 0))), by = plot][teo > 0][order(-teo)]$plot   # plots with any introgression
 cat("introgressed lines:", paste(introg, collapse = ", "), "\n")
 hvhap <- function(f){ l <- grep("^#", readLines(f), invert=TRUE, value=TRUE); x <- strsplit(l,"\t"); data.table(start_bp=as.integer(sapply(x,`[`,2)), hapid=gsub("[<>]","",sapply(x,`[`,5))) }
 phg_seg <- function(DN){ g <- file.path(W, paste0("graph_", DN)); hv <- file.path(Q,"imputation_PHG",F,paste0("graph_",DN),"hvcf")
@@ -30,7 +31,7 @@ rt <- rt[chr==10, .(line=parse_line(name), lambda=parse_lam(name), start_bp=as.i
 # name (left) = line id; lanes (right) = truth once + RTIGER/PHG paired by coverage. Coverage on the right, with the method.
 rows <- list()
 for (ln in introg){
-  rows[[paste(ln,"t")]] <- bt[name==ln, .(name=ln, chr=10L, start_bp, end_bp, state=state3, method="truth")]   # coverage-independent -> once
+  rows[[paste(ln,"t")]] <- bt[plot==ln, .(name=ln, chr=10L, start_bp, end_bp, state=state3, method="truth")]   # coverage-independent -> once
   for (lam in lams){
     rows[[paste(ln,"r",lam)]] <- rt[line==ln & abs(lambda-lam)<1e-9, .(name=ln, chr=10L, start_bp, end_bp, state, method=sprintf("RTIGER %.2gx", lam))]
     rows[[paste(ln,"a",lam)]] <- phgA[line==ln & abs(lambda-lam)<1e-9, .(name=ln, chr=10L, start_bp, end_bp, state, method=sprintf("PHG %.2gx", lam))]

@@ -43,8 +43,8 @@ for (p in plots) {
   ## bulk dosage: sum of the 6 sibs' state (0/1/2) at each marker -> k in 0..12
   kd <- d[, .(k = sum(state)), by = pos][order(pos)]
   bed_k <- rle_bed(kd, "k"); setnames(bed_k, "val", "k")
-  fwrite(bed_k[, .(chr, start, end, k)], file.path(out, sprintf("bc2s3_bulk_%s_dosage.bed", sort(unique(d$name))[1])), sep = "\t", col.names = FALSE)
-  bulk_seg[[p]] <- bed_k[, .(name = sort(unique(d$name))[1], chr = CHR, start_bp = start, end_bp = end, state = k)]
+  fwrite(bed_k[, .(chr, start, end, k)], file.path(out, sprintf("bc2s3_bulk_%s_dosage.bed", p)), sep = "\t", col.names = FALSE)
+  bulk_seg[[p]] <- bed_k[, .(name = p, chr = CHR, start_bp = start, end_bp = end, state = k)]   # pool named by plot (family), not sib-1
   ks[[p]] <- bed_k[, .(bp = sum(end - start)), by = k]
   ## single-genome control: sib 1 (state 0/1/2), keep its real name (qcNN_L01) so it matches the existing sweep lines
   s1nm <- sort(unique(d$name))[1]; d1 <- d[name == s1nm][order(pos)]
