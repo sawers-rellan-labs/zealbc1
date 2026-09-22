@@ -9,3 +9,5 @@ dependencies:
   - bcftools=1.21
   - htslib=1.21
   - cutadapt=4.9      # inline-inline demux (exact match, -Z fast gzip)
+  - pysam=0.22        # read_mixing (QC set) + per-read BAM walks
+  - wgsim             # read simulation (QC set)
