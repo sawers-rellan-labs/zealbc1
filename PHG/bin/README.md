@@ -17,3 +17,4 @@ Paint/simulation helpers: `../analysis/`. Run recipes (sbatch bodies) are in the
 | `compare_discovery_sets.py` + `.sbatch` | discovery review | old vs rerun tier A of one donor: overlap, per-site test vs independent RTIGER SNP50K segments, B73 artifact flags |
 | `union_sites.py` + `.sbatch` | union pilot step 1 | union of tier-A sites over donors; per donor shared / private / other-only, and the positions that need the second counting pass |
 | `second_pass_counts.sbatch` + `counts_to_crisp_vcf.py` | union pilot step 2 | count the union sites missing from a donor's table (BC1 + BC2S3 pool + B73 pools), classify with the unchanged step 4, no veto |
+| `dhd_union.py` + `.sbatch` | union pilot step 3 | donor allele at every biallelic union site: ALT = tier A, REF = tier ref, else missing (own table first, then second pass) |
