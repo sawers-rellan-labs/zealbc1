@@ -42,10 +42,10 @@ bgzip -f crisp_all.vcf; tabix -f -p vcf crisp_all.vcf.gz
 echo "== [3] witness veto (>=1 ALT read in $WIT)  $(date)"
 python3 "$C/PHG/bin/veto_witness.py" crisp_all.vcf.gz crisp_vetoed.vcf "$WIT"; bgzip -f crisp_vetoed.vcf; tabix -f -p vcf crisp_vetoed.vcf.gz
 
-echo "== [4] B73 comparison: count the 2 B73 pools at the kept sites (-q20 -Q20)  $(date)"
+echo "== [4] B73 comparison: count the 2 B73 pools at the kept sites (-q20 -Q20; -I: an insertion record at the SNP position would overwrite its counts)  $(date)"
 printf '%s\n' "${B73_CTRL[@]}" > b73_bams.txt
 bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\n' crisp_vetoed.vcf.gz > kept_sites.tsv; cut -f1,2 kept_sites.tsv | sort -u -k2,2n > kept_pos.tsv
-bcftools mpileup -f "$REF" -r chr10 -T kept_pos.tsv -q 20 -Q 20 -a AD -d 10000 -b b73_bams.txt -Ou 2> b73_mpileup.log \
+bcftools mpileup -I -f "$REF" -r chr10 -T kept_pos.tsv -q 20 -Q 20 -a AD -d 10000 -b b73_bams.txt -Ou 2> b73_mpileup.log \
   | bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%AD]\n' > b73_query.tsv
 python3 "$C/PHG/bin/mpileup_ad_counts.py" b73_query.tsv kept_sites.tsv b73_bams.txt b73_counts.tsv
 echo "== [5] step 4 (B73 zero class from the counts; BC2S3 pool mapped as its own 'donor')  $(date)"
