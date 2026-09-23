@@ -14,3 +14,4 @@ Paint/simulation helpers: `../analysis/`. Run recipes (sbatch bodies) are in the
 | `covered_blocks.sh` | step 5 helper | depth-based covered BED over the lowcopy ranges (summed pool depth >= 8) for founder reference blocks |
 | `rtiger_poolseq.R` | RTIGER lane | per-line REF/ALT counts at founder sites -> nilHMM call_ancestry(rtiger, BC2S3, rigidity) -> segments CSV (was `rtiger_founder.R` on hazel) |
 | `ad_to_counts.py` | RTIGER lane | bcftools AD table -> counts.tsv (SAMPLE CONTIG POSITION REF_COUNT ALT_COUNT REF_NUC ALT_NUC) |
+| `compare_discovery_sets.py` + `.sbatch` | discovery review | old vs rerun tier A of one donor: overlap, per-site test vs independent RTIGER SNP50K segments, B73 artifact flags |
