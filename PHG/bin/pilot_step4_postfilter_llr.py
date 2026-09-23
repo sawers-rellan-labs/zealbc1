@@ -3,6 +3,7 @@
 
 Usage: pilot_step4_postfilter_llr.py --vcf crisp.vcf[.gz] --map demux_qc.tsv --out OUTDIR
          [--til18 TIL18.tsv --gigi Gigi.tsv --schnable schn.tsv --mgdb mgdb.tsv] [--eps0 0.005] [--prior 0.5]
+         [--extra-counts counts.tsv]   pools counted outside CRISP (e.g. the B73 controls; mpileup_ad_counts.py), added as pools per record
 Per record (biallelic SNPs only): per pool n_i (ref+alt reads, ADf+ADr+ADb) and a_i (alt reads).
 Per donor d (pools i in d):  H1: j_i~Binom(6,1/2) carriers, f_j=j/12, p_j=f_j(1-eps)+(1-f_j)eps, L1_i=sum_j w_j Binom(a_i|n_i,p_j)
                               H0: L0_i=Binom(a_i|n_i,eps);  LLR_d = sum_i log L1_i - log L0_i
@@ -18,6 +19,7 @@ ap.add_argument('--vcf', required=True); ap.add_argument('--map', required=True)
 ap.add_argument('--til18'); ap.add_argument('--gigi'); ap.add_argument('--schnable'); ap.add_argument('--mgdb')
 ap.add_argument('--eps0', type=float, default=0.005); ap.add_argument('--prior', type=float, default=0.5)
 ap.add_argument('--plants', type=int, default=6)
+ap.add_argument('--extra-counts')   # TSV chrom pos ref alt sample n a; samples absent at a record count (0,0)
 A = ap.parse_args()
 import os; os.makedirs(A.out, exist_ok=True)
 PL = A.plants; H = 2 * PL
@@ -69,6 +71,19 @@ with op(A.vcf, 'rt') as f:
                     except ValueError: pass
             cnt[p] = (r + a, a)
         recs.append((x[0], int(x[1]), x[3], x[4], cnt))
+if A.extra_counts:
+    xc = collections.defaultdict(dict); xs = []
+    with open(A.extra_counts) as f:
+        f.readline()
+        for l in f:
+            c, pos, r, a, smp, n, k = l.rstrip('\n').split('\t'); xc[(c, int(pos), r, a)][smp] = (int(n), int(k))
+            if smp not in xs: xs.append(smp)
+    for smp in xs:
+        if smp in pools: sys.exit(f"extra-counts sample {smp} is already a VCF column")
+    pools += xs
+    for c, pos, r, a, cnt in recs:
+        e = xc.get((c, pos, r, a), {})
+        for smp in xs: cnt[smp] = e.get(smp, (0, 0))
 donors = sorted(set(smap[p] for p in pools if p in smap)); dpools = {d: [p for p in pools if smap.get(p) == d] for d in donors}
 tot = [sum(n for n, a in r[4].values()) for r in recs]; med = statistics.median(tot) if tot else 0
 info = [f"records(biallelic SNPs)={len(recs)} pools={len(pools)} donors={len(donors)} median_total_depth={med} eps0={A.eps0} prior={A.prior}"]
