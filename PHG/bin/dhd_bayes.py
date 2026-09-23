@@ -4,7 +4,7 @@ Scope (user, 2026-09-23):
   own site (the donor is in the union row's discovered_in)  -> ALT, as discovered; never re-called
   gap site (discovered only in other donors)                -> from the donor's count-once reads (joint step-4 table):
       REF  if tier 'ref'  (the donor's own reads show B73; no prior involved)
-      ALT  if posterior >= --alt, where the prior is raised by the OTHER donors' ALT at that site:
+      ALT  if posterior >= --alt (0.999, chosen 2026-09-23 from the per-site test by posterior bin), where the prior is raised by the OTHER donors' ALT at that site:
              k = prior donors with the site discovered (ALT),  m = prior donors with a genotype there (discovered ALT, or gap REF)
              pi = (w*mu_d + k) / (w + m),   mu_d = tier A / (tier A + tier ref) over the donor's gap sites
              posterior = logistic(LLR_d + logit pi);  sites flagged hidepth / af_gt_half are never promoted
@@ -17,7 +17,7 @@ Usage: dhd_bayes.py OUTDIR union.tsv.gz DONOR=joint_step4/DONOR.sites.tsv.gz [..
 import gzip, os, math, collections, argparse
 
 ap = argparse.ArgumentParser(); ap.add_argument('outdir'); ap.add_argument('union'); ap.add_argument('tables', nargs='+')
-ap.add_argument('--w', type=float, default=2.0); ap.add_argument('--alt', type=float, default=0.95)
+ap.add_argument('--w', type=float, default=2.0); ap.add_argument('--alt', type=float, default=0.999)
 ap.add_argument('--taxa', default=''); ap.add_argument('--same-taxon', action='store_true')
 A = ap.parse_args(); out = A.outdir; os.makedirs(out, exist_ok=True)
 tabs = dict(t.split('=', 1) for t in A.tables); donors = list(tabs)
