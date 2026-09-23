@@ -13,7 +13,9 @@ those sites.
 ## Fixed facts
 - One BC1 sample = 6 pooled plants; a donor has 1–5 samples. F1 = H_d/B73 → one donor haplotype per family (no donor-het issue).
 - Confident REF = step-4 tier `ref` (LLR ≤ −4 and pooled n ≥ 12); ALT = tier A.
-- PHG settings fixed: F = 0, prob-same-gamete 0.99999. No further find-paths tuning.
+- PHG settings fixed: F = 0, prob-same-gamete 0.99999 (maximum introgression recall, het or hom-ALT). No further find-paths tuning.
+- Every sequenced sample is a 6-plant pool (BC1 samples and BC2S3 skims). All callers currently run with design BC2S3; its fit to
+  pooled lines of segregating families is assessed a posteriori (step 7).
 - Rasterize / score / export with existing code: zealhmm `R/metrics.R` (`rasterize_states`, `rasterize_named`, `marker_dsc`),
   `zeal_export_release.R` (012 → TSV, VCF, PLINK).
 - **No R/qtl in the pilot** (needs n > 100 lines per taxon). The 0.1 cM grid (union markers → `bp_to_cm` on the TeoNAM native v5 map →
@@ -38,7 +40,7 @@ Zd.0040_P1 has no 1.2x lines and Zx.0100_P4's 4 are not aligned, so pair A canno
 | 4 | Union founder | gVCF: hom-ALT at ALT, reference records at REF, no record at missing → pseudo-assembly → PHG DB (two-founder graph) | founder per donor |
 | 5 | PHG | F = 0, stay 0.99999, on the donor's lines | imputed paths |
 | 6 | Rasterize + export | `rasterize_states` at the union sites → 012 → `zeal_export_release.R` | per donor matrix, VCF |
-| 7 | Evaluation | structural no-call vs the 22% baseline (go/no-go); `marker_dsc` PHG vs RTIGER; B73 checks clean; for pair B: 0.4x vs 1.2x lines within family | table + paintings |
+| 7 | Evaluation | structural no-call vs the 22% baseline (go/no-go); `marker_dsc` PHG vs RTIGER; B73 checks clean; for pair B: 0.4x vs 1.2x lines within family; **design BC2S3 vs BC2S2** for the pooled lines (RTIGER on the same counts; QC-set bulk arm k/12 truth + real-line metrics); same test decides PHG F = 0 | table + paintings |
 
 Hazel results: `ZEAL/results/pilot_union_chr10/` (pair A work) and `ZEAL/results/pilot_mix_chr10/` (pair B prep). Separate Nextflow
 launch dirs per session.
@@ -47,3 +49,4 @@ launch dirs per session.
 1. Tier A only for the union in the pilot (decided); A+B later?
 2. DHd-missing cells: leave NA and filter, or impute at the end?
 3. 1–2-sample donors: keep the same-accession fallback, or flag them?
+4. Design prior for pooled BC2S3 lines: BC2S3 (current) or BC2S2 — decided by the step-7 assessment.

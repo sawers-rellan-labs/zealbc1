@@ -21,8 +21,9 @@ line. Where sources disagree, the later decision wins and `docs/DECISIONS.md` is
 ::: {.callout-note}
 ## Outcome (decisions that still hold)
 
-- One BC1 **sample** = one sequenced library = one inline barcode = **6 pooled BC1 plants**. 384 samples, 95
-  donors, 1–5 samples per donor. It is modelled as a pool (CRISP `-p 12`, the j/12 lattice).
+- **Everything sequenced is a 6-plant pool** (user, 2026-09-23): each BC1 **sample** (one library = one inline barcode)
+  is 6 pooled BC1 plants, and each BC2S3 skim is a 6-plant field-plot bulk. No single-plant data exist at any
+  generation. BC1: 384 samples, 95 donors, 1–5 samples per donor, modelled as a pool (CRISP `-p 12`, the j/12 lattice).
 - The F1 is H_d/B73 and carries **one haploid donor gamete**, so a donor's descendants carry only H_d alleles.
   The teosinte parent's heterozygosity does not enter.
 - BC1 raw data are demultiplexed with **cutadapt, exact match** (`-e 0 --no-indels`). Pool 1B was aligned first.
@@ -33,7 +34,7 @@ line. Where sources disagree, the later decision wins and `docs/DECISIONS.md` is
 - Donor variants are **discovered per donor from its BC1 samples**. Panels are used only as annotation.
 :::
 
-## 1. 09-10: the single-plant premise
+## 1. 09-10: the single-plant premise (an error)
 
 **Assumed.** The 09-10 summary and plan treated each BC1 inline barcode as leaf DNA from **one BC1 plant**, a
 single diploid individual. The evidence cited was `meta/samples.tsv`: 384 samples, 384 distinct `BC1_line_id`s,
@@ -50,13 +51,13 @@ donor's plants as the donor's teosinte alleles. Then a per-F1 mask and a binHMM 
 Other facts recorded then that are still used: the BC2S3 → BC1 donor join key `donor_id = accession_P<P1>`,
 and 18 donor plants (21 BC2S3 lines, 0.8%) with no BC1 data.
 
-**Status.** Both files carry a "SUPERSEDED (2026-09-21)" banner. The single-plant model and the Phase-1 binHMM
-route no longer apply.
+**Status.** The premise was an error (user, 2026-09-23): no sample was ever a single plant. Both files carry a
+"SUPERSEDED (2026-09-21)" banner, and the single-plant model and the Phase-1 binHMM route do not apply.
 
 Sources: `agent/SUMMARY.md`, `agent/PLAN.md`, memory `bzea-bc1-donor-approach.md` (historical part),
 `docs/DECISIONS.md` (row 2026-09-10).
 
-## 2. The premise reversed: each sample is a pool of 6 plants
+## 2. The correction: every sequenced sample is a pool of 6 plants
 
 **What changed.** Rubén stated that each sequenced sample **is** a 6-plant pool. On 09-17 the memory note
 listed this as unresolved and proposed a test on `results/binhmm_check_bcf/counts50K.tsv`. In one sample,
@@ -89,6 +90,12 @@ detection noise, not segregation. Completeness is limited by detection, not pres
 callers (bcftools call, DeepVariant, a diploid-design RTIGER/bbnil) are the wrong layer for BC1, and only
 allele counts are used. A site with good pooled depth and no alt reads across a donor's samples is REF
 (step-4 tier `ref`: LLR ≤ −4 and n ≥ 12).
+
+**BC2S3 lines are pools too.** The BC2S3 skims are 6-plant field-plot bulks (user, 09-19). In a family that no longer
+segregates the bulk looks like one BC2S3 plant, so the BC2S3 single-plant assumptions of the callers hold; in a
+segregating family the bulk estimates the family's dosage (k/12) and those assumptions break. For now every caller
+runs with the BC2S3 design; whether a BC2S2 prior (e.g. RTIGER with design BC2S2) fits the pooled lines better is an
+open, a-posteriori question (workbook 05).
 
 **Terminology.** The project says **sample** for this object. Rubén's README uses another word for it, which
 the project does not use.

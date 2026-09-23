@@ -64,6 +64,8 @@ wrong and was retracted:
 - The F1 is H*d*/B73: it carries **one** haploid donor gamete. Every BC1 plant and every BC2S3 line of that donor carries only H*d* alleles.
 - One BC1 sample = 6 pooled plants; a donor has 1–5 samples (typically ~5, ~30 plants), so every segment of H*d* is present;
   detection depth, not presence, is the limit.
+- The BC2S3 lines are sequenced as 6-plant field-plot bulks too: **every sequenced sample, at every generation, is a
+  6-plant pool** (user, 2026-09-23); the single-plant premise of 09-10 was an error.
 - A site with good pooled depth and no ALT across the donor's samples is REF. Step 4 already encodes this: tier `ref` = LLR ≤ −4 and
   pooled n ≥ 12; tier A = LLR ≥ 6.9 with ALT in ≥ 2 pools (workbook 02).
 
@@ -85,8 +87,8 @@ comparator.
 
 The 09-22 stay × F grid on Zd.0040_P1 (job 921951) scored DSC/MCC against RTIGER and barely moved across the grid (best stay 0.99,
 F 0.2: DSC 0.744, MCC 0.697). The no-call rate was a flat 22% in every cell: 1,657 of 8,095 lowcopy ranges have identical B73 and donor
-haplotypes, and 33 have no donor haplotype. That is a property of the founder. Settings were fixed at F = 0, stay 0.99999, and a
-proposed re-tuning step was dropped from the plan. The founder built from the union DH*d* is aimed at exactly that 22%; its drop is the
+haplotypes, and 33 have no donor haplotype. That is a property of the founder. Settings were fixed at F = 0, stay 0.99999 — chosen to maximize true-positive recall of introgression (het or
+hom-ALT) in pooled lines — and a proposed re-tuning step was dropped from the plan. The founder built from the union DH*d* is aimed at exactly that 22%; its drop is the
 pilot's go/no-go for PHG (workbook 03).
 
 Rasterizing, scoring and export reuse existing code: zealhmm `R/metrics.R` (`rasterize_states`, `rasterize_named`, `marker_dsc`),
@@ -166,7 +168,19 @@ decision. Two observations from it still inform the design:
 | 4 | union founder: hom-ALT at ALT, reference at REF, nothing at missing → pseudo-assembly → two-founder PHG DB | founder per donor |
 | 5 | PHG, F = 0, stay 0.99999 | imputed paths |
 | 6 | `rasterize_states` at the union sites → 012 → `zeal_export_release.R` | matrix, VCF |
-| 7 | evaluation: no-call vs the 22% baseline; `marker_dsc` PHG vs RTIGER; B73 checks; 0.4x vs 1.2x within pair-B families | table + paintings |
+| 7 | evaluation: no-call vs the 22% baseline; `marker_dsc` PHG vs RTIGER; B73 checks; 0.4x vs 1.2x within pair-B families; **BC2S3 vs BC2S2 design** (below) | table + paintings |
+
+## The pooled-lines question (a-posteriori assessment)
+
+The callers assume one BC2S3 plant per line. That holds for families that no longer segregate; for a 6-plant bulk of a
+segregating family the sample estimates the family's dosage (k/12), closer to the BC2S2 parent than to one BC2S3 plant.
+For now everything runs with design BC2S3, and PHG runs at F = 0 for maximum introgression recall. Whether that is the
+best fit is measured, not assumed: run RTIGER with design BC2S2 next to BC2S3 on the same counts and compare
+
+- fit and error on the QC-set bulk arm, where the pool truth (k/12) is known (`PHG/qcset/breakpoint_sim_bulk.R`);
+- on real lines: B73 checks, `marker_dsc` agreement, segment-length KS, and per-family HET/ALT balance.
+
+The same comparison decides whether PHG's F = 0 should stay.
 
 ## Open decisions
 
@@ -174,6 +188,7 @@ decision. Two observations from it still inform the design:
 2. DH*d*-missing cells: leave NA and filter, or impute at the end?
 3. Donors with 1–2 BC1 samples: keep the same-accession fallback, or flag them?
 4. Witness veto with few lines: keep "≥ 1 ALT read" as is, or relax it for small families?
+5. Design prior for pooled lines: BC2S3 (current) or BC2S2 — decided by the assessment above.
 
 **Sources.** This session's discussion (2026-09-23); `docs/PLAN_marker_union_pilot.md`; `docs/DECISIONS.md`;
 `zealhmm/scripts/zeal_rqtl_scan.R` and `zealhmm/analysis/zeal-rqtl-dta-lod-profile.qmd`; `agent/donor_batch1_vs_batch2_counts.tsv`
