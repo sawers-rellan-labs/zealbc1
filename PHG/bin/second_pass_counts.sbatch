@@ -10,7 +10,8 @@
 #SBATCH --error=/rsstu/users/r/rrellan/BZea/ZEAL/results/log/second_pass_counts_%j.err
 # Step 2 of docs/PLAN_marker_union_pilot.md: count the union sites absent from the donor's own step-4 table (union/need_counts_<donor>.tsv,
 # multi-allelic positions dropped) in the donor's BC1 CRAMs + its BC2S3 pool + the 2 B73 pools, then classify with the UNCHANGED step 4
-# (pilot_step4_postfilter_llr.py) and NO witness veto, so REF can come out.
+# (pilot_step4_postfilter_llr.py) and NO witness veto, so REF can come out. mpileup -I: an insertion record at the same position has the same
+# single-base REF and would overwrite the SNP counts with ALT = 0 in mpileup_ad_counts.py (found 2026-09-23, 14 sites).
 # Env: DONOR  [U=$Z/results/pilot_union_chr10]  (reads $U/discovery/$DONOR/{bams.txt,map.tsv} written by donor_discovery_chr10.sbatch)
 source ~/.bashrc >/dev/null 2>&1; source "$(conda info --base)/etc/profile.d/conda.sh"; conda activate /share/maize/frodrig4/conda/env/nilhmm
 set -eo pipefail
@@ -22,7 +23,7 @@ echo "[second_pass] $DONOR | code $(git -C $Z/code log --oneline -1 2>/dev/null 
 zcat $U/union/union_chr10.tsv.gz | awk -F'\t' 'NR==FNR{need[$1"\t"$2]=1; next} FNR>1 && $7==0 && (($1"\t"$2) in need){print $1"\t"$2"\t"$3"\t"$4}' $U/union/need_counts_$DONOR.tsv - > sites.tsv
 cut -f1,2 sites.tsv > pos.tsv; echo "targets: $(wc -l < sites.tsv) sites"
 { cat $D/bams.txt; printf '%s\n' $Z/results/b73_control/ERR3288215/B73_ERR3288215.cram $Z/results/b73_control/skim10/B73_skim10.bam; } > bams.txt; cat bams.txt
-bcftools mpileup -f $Z/reference/B73.fa -r chr10 -T pos.tsv -q 20 -Q 20 -a AD -d 10000 --threads 4 -b bams.txt -Ou 2> mpileup.log \
+bcftools mpileup -I -f $Z/reference/B73.fa -r chr10 -T pos.tsv -q 20 -Q 20 -a AD -d 10000 --threads 4 -b bams.txt -Ou 2> mpileup.log \
   | bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%AD]\n' > query.tsv
 python3 $BIN/mpileup_ad_counts.py query.tsv sites.tsv bams.txt counts.tsv
 python3 $BIN/counts_to_crisp_vcf.py counts.tsv pass2.vcf; bgzip -f pass2.vcf; tabix -f -p vcf pass2.vcf.gz
