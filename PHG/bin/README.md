@@ -20,3 +20,4 @@ Paint/simulation helpers: `../analysis/`. Run recipes (sbatch bodies) are in the
 | `dhd_union.py` + `.sbatch` | union pilot step 3 | donor allele at every biallelic union site: ALT = tier A, REF = tier ref, else missing (own table first, then second pass) |
 | `count_union_sample.sbatch` → `count_once_step4.sbatch` + `dhd_joint.py` | union pilot, count once | per-sample counts at the union sites (BC1 samples + 2 B73 pools, array) → one joint step 4 (no veto) → donor allele table, rules A and A+B |
 | `dhd_bayes.py` | union pilot, count once | empirical-Bayes donor allele: prior from the other donors' calls (leave-one-out Beta-binomial), posterior = logistic(LLR + logit prior) |
+| `site_classes_bayes.py` + `site_test_bayes.sbatch` | union pilot, count once | per-site test of the Bayes-admitted ALT/REF and of own tier-A sites now called ref, vs tier-A / tier-ref baselines |

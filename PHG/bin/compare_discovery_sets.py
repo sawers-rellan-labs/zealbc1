@@ -6,6 +6,7 @@
          alt fraction inside the line's donor segments (state 1/2) vs inside its B73 segments (state 0). A real donor allele shows alt
          reads inside donor segments and ~none in B73 segments; a false allele shows ~none inside, or alt everywhere (artifact).
          Also: B73 artifact sites = tier-A sites where the run's B73 'donor' row is tier A/B/C.
+Any classes.tsv (chrom pos ref alt class) can be scored, e.g. the one written by site_classes_bayes.py.
 Usage: compare_discovery_sets.py prep  OLD.sites.tsv.gz NEW.sites.tsv.gz OUTDIR [n_shared=5000]
        compare_discovery_sets.py score OUTDIR ad.tsv rtiger_segments.csv OLD_B73.sites.tsv.gz NEW_B73.sites.tsv.gz"""
 import sys, gzip, csv, random, re, os, bisect, collections, statistics
@@ -88,7 +89,7 @@ with open(adf) as f:
 if nolines: print(f"[check 2] samples without RTIGER segments (ignored): {sorted(nolines)}")
 fo, fn = b73_flagged(ob73), b73_flagged(nb73)
 rows = []
-for cl in ('shared', 'lost', 'gained'):
+for cl in list(dict.fromkeys(cls.values())):   # classes in file order (shared/lost/gained, or any other set written by a prep step)
     ks = [k for k, v in cls.items() if v == cl]
     vs = [acc[k] for k in ks if k in acc]
     ins = [v[0] / v[1] for v in vs if v[1] >= 3]; outs = [v[2] / v[3] for v in vs if v[3] >= 3]
