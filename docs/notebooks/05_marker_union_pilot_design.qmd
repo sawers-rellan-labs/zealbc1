@@ -177,6 +177,12 @@ segregating family the sample estimates the family's dosage (k/12), closer to th
 For now everything runs with design BC2S3, and PHG runs at F = 0 for maximum introgression recall. Whether that is the
 best fit is measured, not assumed: run RTIGER with design BC2S2 next to BC2S3 on the same counts and compare
 
+- **match to the single-locus expectation** (primary criterion): the best ancestry imputation reproduces the population genotype
+  distribution the breeding scheme predicts. Per caller × design, take each line's Mb fractions REF/Het/ALT
+  (zealhmm `state_fractions_mb`) and test them against `single_locus_p0(n_bc = 2, n_self = 3)` (BC2S3) and
+  `single_locus_p0(2, 2)` (BC2S2) with `hotelling_fractions` (zealhmm `R/single_locus.R`, via `nilHMM::breeding_prior`).
+  Reference point: the current SNP50K RTIGER mosaic has Het ≈ 9% vs hom-teosinte ≈ 2% (zealhmm R/qtl notebook).
+  With 2–4 pilot families the test has little power and family founder effects add variance; it is a first read, repeated at scale;
 - fit and error on the QC-set bulk arm, where the pool truth (k/12) is known (`PHG/qcset/breakpoint_sim_bulk.R`);
 - on real lines: B73 checks, `marker_dsc` agreement, segment-length KS, and per-family HET/ALT balance.
 

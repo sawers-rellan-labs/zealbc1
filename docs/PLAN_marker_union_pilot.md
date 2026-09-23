@@ -40,7 +40,7 @@ Zd.0040_P1 has no 1.2x lines and Zx.0100_P4's 4 are not aligned, so pair A canno
 | 4 | Union founder | gVCF: hom-ALT at ALT, reference records at REF, no record at missing → pseudo-assembly → PHG DB (two-founder graph) | founder per donor |
 | 5 | PHG | F = 0, stay 0.99999, on the donor's lines | imputed paths |
 | 6 | Rasterize + export | `rasterize_states` at the union sites → 012 → `zeal_export_release.R` | per donor matrix, VCF |
-| 7 | Evaluation | structural no-call vs the 22% baseline (go/no-go); `marker_dsc` PHG vs RTIGER; B73 checks clean; for pair B: 0.4x vs 1.2x lines within family; **design BC2S3 vs BC2S2** for the pooled lines (RTIGER on the same counts; QC-set bulk arm k/12 truth + real-line metrics); same test decides PHG F = 0 | table + paintings |
+| 7 | Evaluation | structural no-call vs the 22% baseline (go/no-go); `marker_dsc` PHG vs RTIGER; B73 checks clean; for pair B: 0.4x vs 1.2x lines within family; **design BC2S3 vs BC2S2** for the pooled lines (RTIGER on the same counts); primary criterion = match of per-line Mb REF/Het/ALT fractions to the single-locus expectation (zealhmm `single_locus_p0(2,3)` / `(2,2)` + `hotelling_fractions`), plus QC-set bulk arm k/12 truth and real-line metrics; same test decides PHG F = 0 | table + paintings |
 
 Hazel results: `ZEAL/results/pilot_union_chr10/` (pair A work) and `ZEAL/results/pilot_mix_chr10/` (pair B prep). Separate Nextflow
 launch dirs per session.
