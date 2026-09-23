@@ -28,5 +28,5 @@ python3 $BIN/pilot_step4_postfilter_llr.py --vcf joint.vcf.gz --map map.tsv --ti
 cat step4/summary.tsv
 args=(); for d in $DONORS; do args+=("$d=$OUT/step4/$d.sites.tsv.gz"); done
 python3 $BIN/dhd_joint.py $OUT $Z/results/pilot_union_chr10/union/union_chr10.tsv.gz "${args[@]}"
-python3 $BIN/dhd_bayes.py $OUT $Z/results/pilot_union_chr10/union/union_chr10.tsv.gz "${args[@]}"
+python3 $BIN/dhd_bayes.py $OUT/bayes $Z/results/pilot_union_chr10/union/union_chr10.tsv.gz "${args[@]}"
 echo "DONE $(date)"

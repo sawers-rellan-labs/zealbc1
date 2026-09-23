@@ -1,22 +1,28 @@
 #!/usr/bin/env python3
-"""Empirical-Bayes donor allele at every biallelic union site, from the joint step-4 tables (count-once).
-Step 4 gives each donor d at site s a log Bayes factor LLR(d,s) (donor carries the ALT vs sequencing error) and uses a flat prior 0.5.
-Here the prior comes from the OTHER donors' calls at the same site (leave-one-out), Beta-binomial:
-    k = other donors with tier A at s,  m = other donors with tier A or tier ref at s
-    pi(d,s) = (alpha_d + k) / (alpha_d + beta_d + m),   alpha_d = w*mu_d, beta_d = w*(1-mu_d)
-    mu_d = donor d's sharing rate: tier A / (tier A + tier ref) at the union sites discovered only by other donors
-    posterior(d,s) = logistic(LLR + logit pi)
-State: ALT if posterior >= --alt (0.95); REF if posterior <= --ref (0.05) and n >= 12; unknown otherwise. Sites flagged hidepth or
-af_gt_half (paralog/CNV signatures) stay unknown whatever the prior. Also cross-tabulates against the fixed rules of dhd_joint.py.
-Output: OUTDIR/dhd_bayes_<chrom>.tsv.gz, OUTDIR/dhd_bayes_summary.tsv
-Usage: dhd_bayes.py OUTDIR union.tsv.gz DONOR=step4/DONOR.sites.tsv.gz [DONOR=...] [--w 2] [--alt 0.95] [--ref 0.05]"""
-import sys, gzip, os, math, collections
+"""Donor allele (DHd) at every biallelic union site — own sites fixed, gaps filled from new read counts (docs/PLAN_marker_union_pilot.md).
+Scope (user, 2026-09-23):
+  own site (the donor is in the union row's discovered_in)  -> ALT, as discovered; never re-called
+  gap site (discovered only in other donors)                -> from the donor's count-once reads (joint step-4 table):
+      REF  if tier 'ref'  (the donor's own reads show B73; no prior involved)
+      ALT  if posterior >= --alt, where the prior is raised by the OTHER donors' ALT at that site:
+             k = prior donors with the site discovered (ALT),  m = prior donors with a genotype there (discovered ALT, or gap REF)
+             pi = (w*mu_d + k) / (w + m),   mu_d = tier A / (tier A + tier ref) over the donor's gap sites
+             posterior = logistic(LLR_d + logit pi);  sites flagged hidepth / af_gt_half are never promoted
+      missing otherwise
+  Prior donors: all other donors, or with --taxa (DONOR=taxon,...) and --same-taxon only the other donors of the same taxon.
+Also writes the heuristic A+B gap state (ALT = tier A, or tier B with ALT in >1 BC1 sample) for comparison.
+Output: OUTDIR/dhd_bayes_<chrom>.tsv.gz  per donor: src (own/gap), tier, LLR, k, m, prior, posterior, state_bayes, state_AB
+        OUTDIR/dhd_bayes_summary.tsv
+Usage: dhd_bayes.py OUTDIR union.tsv.gz DONOR=joint_step4/DONOR.sites.tsv.gz [...] [--w 2] [--alt 0.95] [--taxa D1=Zx,D2=Zd --same-taxon]"""
+import gzip, os, math, collections, argparse
 
-import argparse
 ap = argparse.ArgumentParser(); ap.add_argument('outdir'); ap.add_argument('union'); ap.add_argument('tables', nargs='+')
-ap.add_argument('--w', type=float, default=2.0); ap.add_argument('--alt', type=float, default=0.95); ap.add_argument('--ref', type=float, default=0.05)
-A = ap.parse_args(); W, PALT, PREF = A.w, A.alt, A.ref
-out, uf = A.outdir, A.union; tabs = dict(t.split('=', 1) for t in A.tables)
+ap.add_argument('--w', type=float, default=2.0); ap.add_argument('--alt', type=float, default=0.95)
+ap.add_argument('--taxa', default=''); ap.add_argument('--same-taxon', action='store_true')
+A = ap.parse_args(); out = A.outdir; os.makedirs(out, exist_ok=True)
+tabs = dict(t.split('=', 1) for t in A.tables); donors = list(tabs)
+taxa = dict(x.split('=') for x in A.taxa.split(',') if x)
+prior_set = {d: [e for e in donors if e != d and (not A.same_taxon or taxa.get(e) == taxa.get(d))] for d in donors}
 def load(p):
     t = {}
     with gzip.open(p, 'rt') as f:
@@ -26,52 +32,54 @@ def load(p):
             t[(x[c['chrom']], int(x[c['pos']]), x[c['ref']], x[c['alt']])] = (x[c['tier']], int(x[c['n']]), int(x[c['n_pools_alt']]),
                                                                               float(x[c['LLR']]), x[c['flags']])
     return t
-T = {d: load(p) for d, p in tabs.items()}; donors = list(tabs)
+T = {d: load(p) for d, p in tabs.items()}; NONE = ('absent', 0, 0, 0.0, '.')
 union = []
-with gzip.open(uf, 'rt') as f:
+with gzip.open(A.union, 'rt') as f:
     f.readline()
     for l in f:
         x = l.rstrip('\n').split('\t')
         if x[6] == '0': union.append(((x[0], int(x[1]), x[2], x[3]), set(x[5].split(','))))
-NONE = ('absent', 0, 0, 0.0, '.')
+def gap_ref(d, k, disc): return d not in disc and T[d].get(k, NONE)[0] == 'ref'
 mu = {}
 for d in donors:
     a = r = 0
     for k, disc in union:
         if d in disc: continue
         t = T[d].get(k, NONE)[0]; a += t == 'A'; r += t == 'ref'
-    mu[d] = (a + 0.5) / (a + r + 1); print(f"[dhd_bayes] {d}: sharing rate mu = {mu[d]:.3f} (tier A {a}, tier ref {r} at other donors' sites) | w = {W}")
+    mu[d] = (a + 0.5) / (a + r + 1)
+    print(f"[dhd_bayes] {d}: mu = {mu[d]:.3f} (gap tier A {a}, gap tier ref {r}) | prior donors {prior_set[d] or 'none'} | w = {A.w} | alt >= {A.alt}")
 logit = lambda p: math.log(p / (1 - p))
 def logistic(z): return 1 / (1 + math.exp(-z)) if z > -700 else 0.0
-S = {d: collections.Counter() for d in donors}; X = {d: collections.Counter() for d in donors}
+S = {d: collections.Counter() for d in donors}
 chrom = union[0][0][0] if union else 'chr'
 with gzip.open(os.path.join(out, f'dhd_bayes_{chrom}.tsv.gz'), 'wt') as o:
-    o.write('chrom\tpos\tref\talt\tdiscovered_in\t' + '\t'.join(f'{d}_LLR\t{d}_k\t{d}_m\t{d}_prior\t{d}_posterior\t{d}_state' for d in donors) + '\n')
+    o.write('chrom\tpos\tref\talt\tdiscovered_in\t' + '\t'.join(
+        f'{d}_src\t{d}_tier\t{d}_LLR\t{d}_k\t{d}_m\t{d}_prior\t{d}_posterior\t{d}_state_bayes\t{d}_state_AB' for d in donors) + '\n')
     for k, disc in union:
         cells = []
         for d in donors:
             tier, n, npa, llr, flags = T[d].get(k, NONE)
-            kk = sum(1 for e in donors if e != d and T[e].get(k, NONE)[0] == 'A')
-            mm = sum(1 for e in donors if e != d and T[e].get(k, NONE)[0] in ('A', 'ref'))
-            pi = (W * mu[d] + kk) / (W + mm); pi = min(max(pi, 1e-6), 1 - 1e-6)
-            post = logistic(llr + logit(pi)) if tier != 'absent' else pi
+            if d in disc:
+                cells += ['own', tier, f'{llr:.2f}', '.', '.', '.', '.', '1', '1']; S[d]['own_ALT'] += 1; continue
+            kk = sum(1 for e in prior_set[d] if e in disc)
+            mm = kk + sum(1 for e in prior_set[d] if gap_ref(e, k, disc))
+            pi = min(max((A.w * mu[d] + kk) / (A.w + mm), 1e-6), 1 - 1e-6)
             bad = any(f in flags.split(',') for f in ('hidepth', 'af_gt_half'))
-            st = 'NA' if tier == 'absent' or bad else '1' if post >= PALT else '0' if (post <= PREF and n >= 12) else 'NA'
-            fixA = '1' if tier == 'A' else '0' if tier == 'ref' else 'NA'
-            fixAB = '1' if tier == 'A' or (tier == 'B' and npa >= 2) else '0' if tier == 'ref' else 'NA'
-            S[d][st] += 1; X[d][(fixA, st)] += 1; X[d][('AB' + fixAB, st)] += 1
-            if st == '1' and tier != 'A': S[d][f'ALT_from_tier_{tier}'] += 1
-            cells += [f'{llr:.2f}', str(kk), str(mm), f'{pi:.3f}', f'{post:.4f}', st]
+            post = logistic(llr + logit(pi)) if tier != 'absent' else float('nan')
+            if tier == 'ref': sb = '0'
+            elif tier != 'absent' and not bad and post >= A.alt: sb = '1'
+            else: sb = 'NA'
+            sab = '1' if tier == 'A' or (tier == 'B' and npa >= 2) else '0' if tier == 'ref' else 'NA'
+            S[d][f'gap_bayes_{sb}'] += 1; S[d][f'gap_AB_{sab}'] += 1
+            if sb == '1': S[d][f'gap_bayes_ALT_tier_{tier}'] += 1
+            cells += ['gap', tier, f'{llr:.2f}', str(kk), str(mm), f'{pi:.3f}', 'NA' if post != post else f'{post:.4f}', sb, sab]
         o.write(f"{k[0]}\t{k[1]}\t{k[2]}\t{k[3]}\t{','.join(sorted(disc))}\t" + '\t'.join(cells) + '\n')
-n = len(union); lab = {'1': 'ALT', '0': 'REF', 'NA': 'unknown'}
+n = len(union)
 with open(os.path.join(out, 'dhd_bayes_summary.tsv'), 'w') as o:
-    o.write('donor\tmu\tALT\tREF\tunknown\tALT_not_tierA\n')
-    for d in donors:
-        o.write(f"{d}\t{mu[d]:.3f}\t{S[d]['1']}\t{S[d]['0']}\t{S[d]['NA']}\t{S[d]['1'] - X[d][('1', '1')]}\n")
+    ks = sorted({k for d in donors for k in S[d]}); o.write('donor\tmu\t' + '\t'.join(ks) + '\n')
+    for d in donors: o.write(f"{d}\t{mu[d]:.3f}\t" + '\t'.join(str(S[d][k]) for k in ks) + '\n')
 for d in donors:
-    s = S[d]; pct = lambda v: f"{v} ({100 * v / n:.1f}%)"
-    print(f"[dhd_bayes] {d}: ALT {pct(s['1'])} | REF {pct(s['0'])} | unknown {pct(s['NA'])} | ALT from tier " +
-          ', '.join(f"{t} {s[f'ALT_from_tier_{t}']}" for t in ('B', 'C', '-', 'ref')))
-    for rule, pre in (('rule A', ''), ('rule A+B', 'AB')):
-        print(f"[dhd_bayes] {d} {rule} vs Bayes (rows fixed rule, cols Bayes ALT/REF/unknown): " +
-              ' | '.join(f"{lab[f]}: " + '/'.join(str(X[d][(pre + f, b)]) for b in ('1', '0', 'NA')) for f in ('1', '0', 'NA')))
+    s = S[d]; g = n - s['own_ALT']
+    print(f"[dhd_bayes] {d}: own ALT {s['own_ALT']} | gaps {g}: Bayes ALT {s['gap_bayes_1']} (tier A {s['gap_bayes_ALT_tier_A']}, "
+          f"B {s['gap_bayes_ALT_tier_B']}, C {s['gap_bayes_ALT_tier_C']}, - {s['gap_bayes_ALT_tier_-']}) / REF {s['gap_bayes_0']} / missing {s['gap_bayes_NA']}"
+          f" || heuristic A+B: ALT {s['gap_AB_1']} / REF {s['gap_AB_0']} / missing {s['gap_AB_NA']}")
