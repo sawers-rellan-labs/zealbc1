@@ -1,0 +1,271 @@
+---
+title: "Simulations and QC set"
+subtitle: "Non-informative-site simulation, BC1 panel simulation and the design-B QC-set benchmark, 2026-09-20 to 09-22"
+author: "Fausto Rodríguez-Zapata"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    embed-resources: true
+execute:
+  echo: false
+---
+
+**What this is.** A look back at the simulation work on chr10 between 2026-09-20 and 2026-09-22. It covers three pieces of work. The first is a
+simulation of non-informative founder sites: how alleles written into H_d that a line does not carry change the painting. The second is a
+simulated BC1 panel used as a ground-truth picture. The third is the QC-set benchmark (design B), which measures per-donor pooled variant
+discovery and genotyping (RTIGER poolseq, PHG lowcopy) against known truth, plus a 6-plant BC2S3 bulk arm. Every number below comes from
+the listed sources. If a planned step has no results in them, the text says so.
+
+::: {.callout-note}
+## Outcome
+- **Non-informative fraction (f).** RTIGER keeps the right calls up to f = 0.15 and then collapses to HET: ALT accuracy is 0.03 at
+  f = 0.40 and 0.001 at f = 0.70. Even with a perfect founder, PHG shows a false-teosinte floor of about 1%. The floor is deterministic:
+  80 allele-dense ranges carry 86% of it. PHG also puts B73 gaps inside true ALT (5.4% of range calls), and 60% of those gap ranges hold
+  zero founder alleles.
+- **Design B replaced design A** (2026-09-21). Design A was dropped because it is uninformative for discovery. Design B uses
+  tract-structured BC1 pools, the TeoNAM v5 map, breakpoints fixed per line, and an independent read draw at each λ.
+- **Lines are 10 families × 1 sib, not 2 × 5.** In the 2 × 5 run all 10 lines descended from two BC2 chromosomes, and chr10 came out all REF.
+- **Design B ran end to end for Gigi and TIL18** (chr10). Tables and paintings are in `agent/qcset_designB_results/`. Discovery recall
+  for founder A was 0.36 (Gigi) and 0.30 (TIL18), with precision 0.68 / 0.73. RTIGER calls ≈98–99.8% of ranges. PHG calls 15–60%, and
+  its false-teosinte length grows with λ.
+- **Bulk arm** (6-plant pool, dosage k/12, Gigi) was run and painted. It tests whether the HET/B73 segments interspersed inside real
+  introgressions come from bulk sampling of a family that is still segregating. No summary table is recorded, only paintings.
+- **Not run / no results recorded:** swap_test (negative control), and the real-read founders (RIL003, RIMH001) with TIL11. TIL11,
+  RIL003 and RIMHU001 still need an anchorwave chr10 alignment.
+:::
+
+## 1. Non-informative-fraction simulation (2026-09-20)
+
+**Design.** The truth comes from `nilHMM::simulate_family("BC2S3")`: 8 families × 6 sibs on chr10, 20k markers (ALT 4.6%, HET 1.2%, 110
+segments). The true H_d is the union strict founder of Zd.0040_P1 (166,789 alleles) minus a random fraction f. The PHG DB was not rebuilt:
+one founder serves every f, and only the simulated genomes change. Because the removed sites are non-informative by construction, their
+effect is isolated. Reads were simulated with wgsim, 2x150, 0.4x. PHG ran on the union B73+Zd graph with two settings:
+
+- setting A: stay 0.99 / F 0.86 / min-reads 1 (the user's setting)
+- setting B: stay 0.9999 / F 0 / min-reads 1 (a contrast)
+
+The nilhmm callers were rtiger and pedigree. binhmm gave no result because its adapter failed on the bin output, so its lane was removed.
+That was an adapter issue, not a caller failure. The plan started with f ∈ {0, 0.15, 0.40}, and f = 0.70 was added later that evening
+(jobs 896939/40/41).
+
+| caller | ALT acc. f=0 | f=0.15 | f=0.40 | f=0.70 |
+|---|---|---|---|---|
+| rtiger | 1.00 | 0.999 | 0.03 (→ HET) | 0.001 (block → HET) |
+| pedigree | 0.97 | 0.79 | 0.52 | 0.14 |
+| PHG A (0.99/0.86/1) | 0.83 | 0.74 | 0.18 | 0.015 (67% → B73) |
+| PHG B (0.9999/0/1) | 0.77 | 0.29 | 0.00 | 0 (→ HET) |
+
+- HET accuracy: rtiger 0.99; PHG B 0.86; PHG A 0.72 → 0.45; pedigree 0.47 → 0.20. B73 accuracy was 0.97–1.00 for every caller.
+- For pedigree, non-informative markers became B73 runs: 0.3% / 14% / 34% of true ALT was called B73.
+- Mean PHG dosage against a truth of 0.104: A 0.124 / 0.118 / 0.078; B 0.127 / 0.100 / 0.078.
+
+**PHG false-teosinte floor is deterministic** (f = 0, setting A, pure-B73 reads, exact founder). 1.0% of truth-B73 range calls came out
+teosinte (2,777 / 275,467). 242 ranges were affected at least once. 80 ranges, each affected in ≥10 of 48 lines, carry 86% of the false
+calls, and 12 small ranges (1–25 kb) misfire in all 48 lines. Each line had 45–71 false calls, which matches the ~50–60 het ranges of the
+real B73 check. The recorded mechanism is that founder alleles create k-mers that also occur elsewhere on the chromosome. These 80 ranges
+have a median of 51 alleles per 7 kb, 5× the typical density. The runlog lists two possible masks: allele density, or a list of ranges
+that misfire on a B73-only run.
+
+**Transitions inserted by the model with a perfect founder.** 5.4% of true-ALT range calls are B73/B73. An earlier figure of 9% was
+marker-weighted; 5.4% is the range-weighted value. 122 deterministic ranges carry 83% of these gaps, and 60% of those ranges hold zero
+founder alleles: every read ties, and at stay 0.99 the tie is broken toward B73. 17% of all union ranges have zero alleles. Two fixes
+are recorded: set stay to the genetic value (0.9991 for union ranges, 0.997 for gene-only ranges), or drop zero-allele ranges. The gap
+ranges and the false-teosinte ranges do not overlap. The zealtiger simulation fit λ = 4.72/Morgan as the exit rate. Holland's 2/Morgan
+is a different quantity (genome-wide junction density).
+
+*Sources: agent/SIM_plan_noninformative_sites_20260920_200135.md; agent/pilot_1B_chr10_runlog_20260917.md (20:50, 21:00, 21:25, and the
+f = 0.70 note under 22:03); agent/handover_20260921_025746.md; docs/PROJECT_STATE.md.*
+
+## 2. BC1 panel simulation
+
+`agent/simulate_bc1.R` simulates a 12-individual BC1 panel with `simulate_nil(design = "BC1S0")` over 10 chromosomes (2,000 markers,
+m = 1.5, seed 42). It turns the true states into segments and paints the karyotype. The result is true ancestry only, with no calling, and
+serves as the ground-truth reference for the real RTIGER mosaic. Its local outputs are `agent/sim_bc1_panel*.png`. The same
+`simulate_nil("BC1S0")` call gives the BC1 plants in design B (§3).
+
+*Sources: agent/simulate_bc1.R header; docs/PROJECT_STATE.md ("BC1 panel sim").*
+
+## 3. QC set: design A dropped, design B adopted (2026-09-21)
+
+Design A sampled an inbred founder at each coverage, both as reference-as-donor and as a 1:1 B73 "F1". It was the first plan of
+2026-09-21. It was then dropped: with an inbred founder every allele is informative, so a mismatch is only base error. Design B instead
+measures the weak point of the real per-donor route: discovery from 6-plant BC1 pools at ~15x, i.e. which false alleles survive and how
+they affect skim genotypes at each coverage. With an inbred founder, "non-informative" here means false alleles from pooled discovery
+(mapping artifacts, low-dosage misses). It does not mean donor heterozygosity. Standing variation would need a separate experiment with
+a heterozygous founder.
+
+| element | design B choice |
+|---|---|
+| founders (chr10 run) | Gigi (Zd) and TIL18 (Zx), the only two with chr10 MAFs against B73 |
+| genetic map | TeoNAM-native v5 (`markers_v5_gwas118k_cm.tsv`; chr10 7,173 markers / 119 cM) |
+| BC2S3 lines | 10 = 10 families × 1 sib; breakpoints simulated once per line, shared by the sweep |
+| coverage sweep | λ ∈ {0.05, 0.1, 0.2, 0.4, 0.8, 1.2}; each λ an independent read draw over the same tracts |
+| BC1 pools | 30 plants `simulate_nil("BC1S0")` → 5 pools of 6, per-tract dosage k/12, 15x, donor reads homozygous |
+| witness | merge of the 60 sweep samples (drops alleles no line carries) |
+| truth alleles | assembly SNPs vs B73 ∩ lowcopy BED (8,095 ranges, 26.0 Mb) = PERFECT founder |
+| founder variants scored | A, A+B (discovered), PERFECT (truth) |
+| callers | PHG two-founder graph (0.9991 / F 0.86 / min-reads 1); RTIGER poolseq (rigidity 500, variable sites) |
+
+**Why 10 × 1 and not 2 × 5.** The 2 × 5 run (job 908526) gave all-REF chr10. `simulate_family` descends every family from one BC2 plant,
+so all 10 lines rested on two chromosomes and there was nothing to score. The user's words were: "the ten families should derive from 10
+different bc1s".
+
+**Founder reads rule** (user, 2026-09-21): use real Illumina only if it is 2x150, like the skims; otherwise simulate 2x150 from the
+assembly.
+
+| founder | read source | reason |
+|---|---|---|
+| RIL003 (Zl) | real SRR18441560, ~24x | 2x150 |
+| RIMH001 (Zh) | real SRR18441536, ~23x | 2x150 |
+| TIL11 (Zv) | simulate | real runs only 2x100 / 2x75 |
+| TIL18 (Zx) | simulate | no WGS at all (TIL25's runs are 2x101, moot once simulating) |
+| Gigi (Zd) | simulate | only run is 2x76; the PI 462368 2x150 run is a different plant |
+
+*Sources: docs/PLAN_qcset_simulation_benchmark.md §0–§4, §8; agent/PLAN_qcset_designB_20260921_124826.md; docs/DECISIONS.md (2026-09-21
+rows); memory qc-set-founder-reads.md; agent/handover_20260921_155429_simulation_benchmark.md.*
+
+## 4. Design B steps and read budget
+
+The step names are the user's, fixed on 2026-09-21: breakpoint_sim → alignment_sim → build_founder_gvcf → read_mixing →
+variant_discovery → imputation (imputation_PHG, imputation_RTIGER) → benchmarking → chr_painting. Code is in `PHG/qcset/`.
+
+**breakpoint_sim** (job 908589, 18 s). 6 of the 10 lines carry donor (0.3–76 Mb) and 4 are pure B73. Genome fractions are REF 0.868 /
+HET 0.001 / ALT 0.131. In the BC1 pools, the median is 8 tracts per pool; k = 3 covers 47% of the chromosome, k = 4–6 covers 38%, and
+there is no k = 0.
+
+**read_mixing demand table.** All 65 samples per founder draw disjoint reads: 5 pools + 60 sweep samples. `read_mixing.py --plan-only`
+computes the peak demand at one locus: 30.5x donor and 86x B73 (5 pools × 15x plus the sweep, Σλ 3.75x × 10 lines). The earlier budget
+was 22x donor and 80x B73. The sources were therefore sized at donor 2 × 22x and B73 5 × 20x (44x / 100x). The user chose "add the 5th
+slice" over reusing reads or using 4 pools. Each read goes to at most one destination via a hash of its qname, and mates stay together.
+Reads are kept only in lowcopy ± 1 kb. Merged samples carry one @RG (ID = SM = sample), because CRISP splits a file into one sample per
+RG, which breaks -p 12 pooling.
+
+**alignment_sim.** wgsim 2x150 reads from the chr10 FASTAs were aligned to whole B73 (minibwa -x sr, MAPQ20). The B73 slices took 9 min
+each (10.16 M pairs) and kept 86%. TIL18_D took 28 min and kept 43%. The recorded consequence: pools and sweep samples get less donor
+depth than nominal in divergent regions. This was intended, because real pools lose the same reads.
+
+| step | state |
+|---|---|
+| 1 breakpoint_sim | done (908589) |
+| 2 alignment_sim | done: tables and paintings downstream exist for both founders; per-slice retention recorded for B73 and TIL18_D only |
+| 3 build_founder_gvcf | done (PERFECT `.alt.tsv` read by benchmarking; `discovery_summary.tsv` has the truth counts) |
+| 4 read_mixing | done (unit-test output not recorded in the sources) |
+| 5 variant_discovery | done: CRISP (5 pools + witness, -p 12) → witness veto → step 4 → founders A, A+B |
+| 6 imputation_PHG / RTIGER | done for A, AB, PERFECT |
+| 7–8 benchmarking / chr_painting | done; copies in `agent/qcset_designB_results/{Gigi,TIL18}/` |
+
+*Sources: agent/handover_20260921_203500_simulation_benchmark.md; docs/DECISIONS.md; PHG/qcset/README.md and script headers; git log
+2026-09-21 (d445c99 … f40c542); agent/qcset_designB_results/ file listing.*
+
+## 5. Design B results (local copies)
+
+**Discovery** (founder alleles vs truth alleles in lowcopy ranges):
+
+| variant | truth alleles | found | false | recall | precision | recall in sweep |
+|---|---|---|---|---|---|---|
+| Gigi_A | 412,493 | 149,377 | 69,175 | 0.362 | 0.683 | 0.498 |
+| Gigi_AB | 412,493 | 182,357 | 82,495 | 0.442 | 0.689 | 0.608 |
+| TIL18_A | 444,982 | 134,338 | 48,805 | 0.302 | 0.734 | 0.394 |
+| TIL18_AB | 444,982 | 164,846 | 60,210 | 0.370 | 0.732 | 0.483 |
+
+For Gigi, 69,024 of the tier-A false alleles are at positions with no truth SNP, and 151 are at truth positions.
+
+**Genotyping, selected rows** from `genotyping_headline.tsv` (λ = 0.05 → 1.2). "called" = fraction called; "false teo" = false-teosinte
+Mb inside truth-B73.
+
+| caller / variant | called | mismatch ALT | false teo (Mb) |
+|---|---|---|---|
+| RTIGER Gigi_A | 0.989 → 0.998 | 0.063 → 0.021 | 0.24 → 0.03 |
+| RTIGER Gigi_PERFECT | 0.986 → 0.996 | 0.028 → 0.004 | 0.15 → 0.02 |
+| PHG Gigi_A | 0.148 → 0.502 | 0.008 → 0.025 | 0.004 → 0.115 |
+| PHG Gigi_PERFECT | 0.163 → 0.456 | 0.008 → 0.014 | 0.004 → 0.437 |
+| RTIGER TIL18_A | 0.980 → 0.994 | 0.076 → 0.043 | 0.30 → 0.02 |
+| PHG TIL18_A | 0.157 → 0.561 | 0.002 → 0.019 | 0 → 0.080 |
+| PHG TIL18_PERFECT | 0.189 → 0.601 | 0.006 → 0.015 | 0.45 → 1.40 |
+
+The RTIGER mismatches fall with λ. For PHG, both the called fraction and the false-teosinte length rise with λ, and the PERFECT founder
+gives the largest false-teosinte length. For Gigi, PHG A adds 3.9 extra breakpoints per line at λ = 0.05 and 47.5 at λ = 1.2, and the
+median breakpoint offset shrinks from 74 kb to 10 kb.
+
+![Gigi founder, simulated BC2S3 lines at 0.4x, chr10. Lanes: truth, RTIGER A, PHG A / AB / PERFECT (local copy).](../../agent/qcset_designB_results/Gigi/Gigi_lam0.4_painting.png)
+
+*Sources: agent/qcset_designB_results/{Gigi,TIL18}/{discovery_summary,genotyping_headline,breakpoint_summary,false_alleles_summary}.tsv
+(local copies).*
+
+## 6. Bulk arm: 6-plant BC2S3 pool (2026-09-22)
+
+**Question.** Real BC2S3 skims are 6-plant bulks, and inside real introgressions the painting shows interspersed HET and B73 segments.
+`breakpoint_sim_bulk.R` tests whether that pattern comes from sampling a still-segregating BC2S3 family as a 6-plant field-plot bulk, as
+opposed to sampling one fixed inbred genome. For each plot it takes one `simulate_family("BC2S3", sibs = 6)` draw and emits two matched
+arms:
+
+- single-genome control: sib 1, states 0/1/2. This arm must paint clean.
+- bulk: all 6 sibs pooled, population dosage k/12. This arm predicts the shredding.
+
+The two arms share founder haplotype and breakpoints, so the only difference between them is residual segregation seen as a bulk.
+`read_mixing --sweep-source bulk` then drew the bulk sweep at k/12 for Gigi, reusing the CRAMs, pools, witness and founders. Imputation
+reused the existing Gigi graphs (A, PERFECT), and RTIGER ran on the same samples. In the truth lane, HET means a still-segregating region
+(0 < k < 12).
+
+The handover of 2026-09-21 02:57 had already recorded that "bulking does not create B73 runs (Poisson sampling)". No summary table is
+recorded for the bulk arm. The results are the paintings and the RTIGER CSVs in `agent/qcset_designB_results/Gigi_bulk/`.
+
+![qc05: true genotypes of the 6 BC2S3 plants and their equimolar pool, chr10 (local copy).](../../agent/qcset_designB_results/Gigi_bulk/qc05_plants_and_pool.png)
+
+![Gigi 6-plant pool at 1.2x and 0.05x: truth, RTIGER, PHG per introgressed plot (local copy).](../../agent/qcset_designB_results/Gigi_bulk/Gigi_bulk_introg_by_coverage.png)
+
+**F sweep on qc05.** `f_sweep_qc05.sbatch` reran find-paths on the qc05 pool with founder Gigi_A, reusing its read-mappings, at
+F = 0.0 … 1.0 and all six coverages. Paintings exist at λ = 0.05, 0.4 and 1.2. The next script, `real_zd0040_F0.sbatch`, calls F = 0
+"the pool-reconstruction setting from the qc05 F sweep". It applied that setting to the 39 real Zd.0040_P1 pools, and a stay × F grid on
+real data followed. Those runs are real-data work and fall outside this notebook; their local paintings are in `real_F0/` and
+`callers_introg/`.
+
+![qc05 pool at 1.2x: PHG founder-A F sweep, F = 0.0 to 1.0 (local copy).](../../agent/qcset_designB_results/f_sweep_qc05/qc05_Fsweep_lam1.2.png)
+
+*Sources: PHG/qcset/breakpoint_sim_bulk.R, bulk_read_mixing.sbatch, bulk_impute_paint.sbatch, f_sweep_qc05.sbatch, real_zd0040_F0.sbatch
+headers; git log 2026-09-22 (7902729, cb4837c, c45f2d3, 55ea1bb, 4172d1e, 8777163); agent/handover_20260921_025746.md.*
+
+## 7. PNGs present under agent/qcset_designB_results/
+
+| folder | files |
+|---|---|
+| Gigi | `Gigi_lam{0.05,0.1,0.2,0.4,0.8,1.2}_painting.png` |
+| TIL18 | `TIL18_lam{0.05,0.1,0.2,0.4,0.8,1.2}_painting.png` |
+| Gigi_bulk | `Gigi_bulk_painting_lam{0.05,0.1,0.2,0.4,0.8,1.2}.png`, `Gigi_bulk_introg_by_coverage.png`, `qc05_plants_and_pool.png` |
+| f_sweep_qc05 | `qc05_Fsweep_lam{0.05,0.4,1.2}.png` |
+| real_F0 | `Zd0040_F0_old_vs_mapq20.png`, `Zd0040_F0_stay0.99999_old_vs_mapq20.png`, `Zd0040_F0_stay0.99999_PHG_vs_RTIGER.png` |
+
+`callers_introg/` also holds two real-data paintings (Zd0040 RTIGER / PHG / nnil / bbnil).
+
+## 8. Pending and not run
+
+- **swap_test** (negative control: one founder's sweep genotyped against the other founder, where calls driven by reads must collapse):
+  written (fde2c23); no results recorded.
+- **Real-read founders** RIL003 / RIMH001, and TIL11: not run. TIL11, RIL003 and RIMHU001 need anchorwave chr10 (~2 h × 8 cpu each)
+  before their truth exists. The reads are on hazel: `raw/qc_set/RIL003` has 186,229,307 pairs and `raw/qc_set/RIMH001` has 179,230,099
+  pairs, both verified.
+- **Whole genome** (≈600 CPU-h, ≈200 without anchorwave): not needed for the benchmark's conclusions (plan §5b).
+- A one-page summary of design B is listed as a deliverable in the 2026-09-21 handover. It is not present in the sources.
+- Commits 2507fb2..76ec963 were awaiting CodeRabbit review at 2026-09-21 20:35. Two later review-fix commits exist (5e8210f, 898d672).
+
+*Sources: docs/PLAN_qcset_simulation_benchmark.md §5, §8; agent/handover_20260921_{155429,203500}_simulation_benchmark.md; git log.*
+
+## 9. Superseded statements
+
+| earlier | later (wins) | source |
+|---|---|---|
+| Design A first, then B (memory, 2026-09-21) | Design A dropped; design B is the benchmark | DECISIONS 2026-09-21 |
+| L = 10 as 2 families × 5 sibs; handover 15:54 "2 × 5 to start" | 10 families × 1 sib | DECISIONS; plan §2 |
+| B73 slices 4 × 20x = 80x (plan §5a, alignment_sim.sbatch header) | 5 × 20x (100x); donor 2 × 22x | demand table, DECISIONS |
+| Sweep REF/HET share from the real B73 CRAM (15.5x, short) | Sweep B73 reads simulated from B73 v5; real CRAM only as control | handover 15:54 decision 4 |
+| Separate partition step after ALIGN | Folded into read_mixing (exclusive qname-hash assignment) | handover 20:35 decision 6 |
+| Five founders | chr10 run with Gigi + TIL18 only (the two with MAFs) | plan §1, §8 |
+| f ∈ {0, 0.15, 0.40} | f = 0.70 added | runlog 22:03 note |
+| 9% of true ALT called B73 (marker-weighted) | 5.4% range-weighted | runlog 21:25 |
+| Sim plan: single plants (09-19 decision) | BC2S3 skims are 6-plant bulks; bulk arm added 09-22 | handover 02:57; breakpoint_sim_bulk.R |
+| RIL003 / RIMH001 downloads "cancelled, partial R1 kept" (plan 12:48, repeated in docs plan §8) | Downloaded and verified via NCBI (handover 15:54) | handover 155429 |
+| "B73 control NOT in CRISP" (QC-set variant_discovery) → 09-23 row "B73 pools in CRISP" | Corrected the same day: CRISP = BC1 samples + BC2S3 pool; B73 enters at step 4 | DECISIONS 2026-09-23 (real-donor route) |
+
+*Sources: as listed per row.*

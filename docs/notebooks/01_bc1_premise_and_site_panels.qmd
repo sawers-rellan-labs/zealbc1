@@ -1,0 +1,282 @@
+---
+title: "BC1 premise and site panels"
+subtitle: "How the BC1 sample model and the variant-site sources were settled, 2026-09-10 to 09-21"
+author: "Fausto Rodríguez-Zapata"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    embed-resources: true
+execute:
+  echo: false
+---
+
+**What this is.** A record of past work, not a plan. Between 2026-09-10 and 2026-09-21 two questions came up
+before BC1 reads could inform BC2S3 genotyping: what one BC1 sequenced sample is, and where the donor's
+variant sites should come from. This notebook goes through, in date order, what was assumed, what was tested,
+what was found and what was decided. Every number is taken from the files named in each section's "Sources"
+line. Where sources disagree, the later decision wins and `docs/DECISIONS.md` is authoritative.
+
+::: {.callout-note}
+## Outcome (decisions that still hold)
+
+- One BC1 **sample** = one sequenced library = one inline barcode = **6 pooled BC1 plants**. 384 samples, 95
+  donors, 1–5 samples per donor. It is modelled as a pool (CRISP `-p 12`, the j/12 lattice).
+- The F1 is H_d/B73 and carries **one haploid donor gamete**, so a donor's descendants carry only H_d alleles.
+  The teosinte parent's heterozygosity does not enter.
+- BC1 raw data are demultiplexed with **cutadapt, exact match** (`-e 0 --no-indels`). Pool 1B was aligned first.
+- Pooled BC1 samples are handled by **CRISP**, and pileups by bcftools. DeepVariant was tested and not
+  pursued. GATK was rejected (read groups, slow).
+- **Schnable 2023 (Grzybowski) genotypes are imputed**: use positions and alleles only. **MaizeGDB 2026 is
+  reference-biased**: not a donor source.
+- Donor variants are **discovered per donor from its BC1 samples**. Panels are used only as annotation.
+:::
+
+## 1. 09-10: the single-plant premise
+
+**Assumed.** The 09-10 summary and plan treated each BC1 inline barcode as leaf DNA from **one BC1 plant**, a
+single diploid individual. The evidence cited was `meta/samples.tsv`: 384 samples, 384 distinct `BC1_line_id`s,
+one per barcode, each written as a single plant's pedigree (`accession_P<donor>_P<bc1>`). The same document
+called the 6-plant pool model in `bzea-bc1-reference` (`PLANTS = 6`, allele frequency j/12 with mean 0.25,
+Binom(6, ½), coverage 1 − 0.5^(6k)) "false".
+
+**Plan built on it.** Phase 1: genotype each plant with `bcftools mpileup + call` at the BzeaSeq biallelic
+sites (~27M, B73 NAM v5), keep heterozygous calls as that plant's teosinte sites, and take the union over a
+donor's plants as the donor's teosinte alleles. Then a per-F1 mask and a binHMM for BC2S3 dosage. Phase 2
+(PHG) would come later. The 09-10 plan also said to keep the fgbio `DemuxFastqs` demux from
+`bzea-bc1-reference`. That was replaced on 09-11 (Section 3).
+
+Other facts recorded then that are still used: the BC2S3 → BC1 donor join key `donor_id = accession_P<P1>`,
+and 18 donor plants (21 BC2S3 lines, 0.8%) with no BC1 data.
+
+**Status.** Both files carry a "SUPERSEDED (2026-09-21)" banner. The single-plant model and the Phase-1 binHMM
+route no longer apply.
+
+Sources: `agent/SUMMARY.md`, `agent/PLAN.md`, memory `bzea-bc1-donor-approach.md` (historical part),
+`docs/DECISIONS.md` (row 2026-09-10).
+
+## 2. The premise reversed: each sample is a pool of 6 plants
+
+**What changed.** Rubén stated that each sequenced sample **is** a 6-plant pool. On 09-17 the memory note
+listed this as unresolved and proposed a test on `results/binhmm_check_bcf/counts50K.tsv`. In one sample,
+look at the alt fraction at teosinte sites: a mode at 0.50 would mean a single plant, and a lattice from 0.08
+to 0.50 with mean ~0.25 would mean a pool. The 09-17 notebook added a per-sample likelihood ratio (pool vs
+plant) as the formal version. None of the sources read here records the result of either test. The pool
+model rests on the wet-lab design as stated by Rubén: `docs/DECISIONS.md` gives "Rubén; wet-lab design" as
+the reason, and the user confirmed it on 2026-09-23.
+
+**The model now in use** (09-17 notebook, §0):
+
+| Quantity | Value |
+|---|---|
+| Plants per sample | 6, pooled before library prep |
+| Samples / donors | 384 samples, 95 donors (F1 plants) |
+| Samples per donor (`meta/bc1_well_map.csv`, checked 09-18) | 1 sample: 1 donor (Zx.0520_P4); 2: 4; 3: 20; 4: 35; 5: 35 |
+| Genotype of a BC1 plant at a teosinte site | always heterozygous (other gamete B73); hom-alt impossible |
+| Pool alt fraction where H_d carries ALT | j/12, j ~ Binom(6, ½): mean 0.25, max 0.50, minimum non-zero 1/12 |
+| P(no plant of 6 carries a segment) | 1/64 |
+| Presence over a donor's k samples | 1 − 0.5^(6k) |
+| Depth per chromosome copy | ~1–2× (pool 1B: 13–25× per sample) |
+
+**One donor gamete.** The F1 is H_d/B73. H_d is one haploid recombinant gamete from the heterozygous teosinte
+parent, and it exists only in that F1. So every BC1 plant and BC2S3 line of a donor carries only H_d alleles.
+The argument that "the donor is het, so the line may carry the other haplotype" does not apply. H_d cannot be
+observed directly. It is inferred from descendants and needs no phasing.
+
+**What follows.** Every sample of a donor carries nearly all of H_d, so differences between samples are
+detection noise, not segregation. Completeness is limited by detection, not presence. Per-sample genotype
+callers (bcftools call, DeepVariant, a diploid-design RTIGER/bbnil) are the wrong layer for BC1, and only
+allele counts are used. A site with good pooled depth and no alt reads across a donor's samples is REF
+(step-4 tier `ref`: LLR ≤ −4 and n ≥ 12).
+
+**Terminology.** The project says **sample** for this object. Rubén's README uses another word for it, which
+the project does not use.
+
+![Simulated BC1 panel: five simulated single-plant mosaics and the union row (local copy under `agent/`). The 09-17 notebook states that the samples of one donor should look like the union row, not like the single-plant rows.](../../agent/sim_bc1_panel_union_bottom.png)
+
+Sources: `agent/PLAN_phg_hq_variants_20260917_143613.md` (§0, §1, §3 "Samples per donor"),
+`docs/PROJECT_STATE.md`, `docs/DECISIONS.md` (row 2026-09-1x), memory `bzea-bc1-donor-approach.md`,
+`bc1-sample-not-ear.md`.
+
+## 3. 09-11 to 09-14: BC1 demultiplexing and pool 1B
+
+**Found.** The BC1 raw data (`BZea/BC1_dna_raw/01.RawData/`) are not per-sample files. There are 32 pooled
+libraries (4 plates × 8 rows; resequenced pools carry an `r`, e.g. `BC1_1Ar`, `BC1_4Ar`, `BC1_4Br`) plus
+`Undetermined`. Each library has 12 inline-barcoded samples and was sequenced paired-end over 3 lanes. The
+barcode is a 6 bp symmetric inline sequence at the start of both R1 and R2, with no cut site after it. The
+minimum Hamming distance of the barcode set is 2 (columns 2/5, 6/8, 9/10), so allowing even one mismatch can
+misassign a read to the neighbouring well.
+
+**Decided (09-11).** Demultiplex with **cutadapt, exact match**:
+`-e 0 --no-indels --pair-adapters --action=trim --discard-untrimmed`, with anchored `^file:bc.fasta` on both
+`-g` and `-G`. The barcode must match on both reads independently, which guards against index hopping.
+Demux runs inside the pipeline as 32 parallel tasks. The sample key is `Sample_Id` (e.g. `S_1A_1`), and
+per-pool, per-column read balance is reported as a flag that does not block the run. This replaced the fgbio
+`DemuxFastqs` step kept in the 09-10 plan.
+
+**Pool 1B first.** Gate 0 (stub run) passed on 09-11 with the expected task counts (DEMUX 32, ALIGN 384). Gate 1
+(pool 1B subsampled) validated the plumbing. Gate 2 was the full pool 1B. On 09-11 the handover estimated
+~29× per plant from file size (230 GB compressed). The measured per-sample coverage in `demux_qc.tsv`
+(09-14) is **13–25×, median ~17.6×**, and supersedes that estimate. The first three Gate 2 attempts failed on
+ALIGN out-of-memory kills, which were not related to depth. The only clean measurement was S_1B_10 at 18.6 GB
+peak RSS under `-x adap`. By 09-21 gates 0–2 on pool 1B were done (12 CRAMs), and **372 of 384 samples are
+not yet aligned**.
+
+Sources: `agent/handover_20260911_190857.md`, `agent/handover_20260914_134435.md`, memory
+`bc1-demux-cutadapt.md`, `docs/PROJECT_STATE.md`.
+
+## 4. Competing routes for donor variants
+
+Three routes to donor variants were considered, and a fourth tool was adopted for pools.
+
+| Route | What it does | Outcome |
+|---|---|---|
+| Transitive capture (the lab's H_d method) | Competitive map of the donor's BC1 reads to B73 + taxon assembly → keep the `only_teosinte` reads → map to the taxon, `bcftools mpileup \| call --ploidy 1` → lift to B73 through the taxon→B73 AnchorWave MAF | The established method; bcftools, not DeepVariant. Named on 09-17 as the alignment-level fix for TE/PAV mismapping, meant to come *before* CRISP |
+| DeepVariant per plant (`bc1_variants`, bc1vars worktree) | Map BC1 reads to B73, run DV per plant | Tested (GPU). Its premise is a single plant per sample. Explored as a competing route, not pursued; worktree stale since 09-11 |
+| GATK | `CollectAllelicCounts`; optionally HaplotypeCaller at ploidy 12 | Rejected: read groups, slow |
+| CRISP (Bansal 2010) | Pooled caller: cross-pool contingency test, per-pool quality test, per-pool ML allele count | Adopted for the pools (`-p 12`) |
+
+**Transitive capture vs DeepVariant.** The chr10 smoke test was set up as containment (is the DV set a subset
+of the transitive set?), not as an imputation-accuracy test. The memory note describing the transitive
+route was written while samples were still read as single plants ("each BC1 carries ~50% of the
+introgression"). Under the pool model each sample carries nearly all of H_d (Section 2).
+
+**Why GATK was dropped (09-15).** The minibwa CRAMs have no `@RG`. A header-only `samtools reheader -i` let GATK
+run with exit 0, but it returned zero counts at every site, because the reads carry no per-read `RG:Z` tag.
+Adding per-read tags means rewriting each CRAM. The fix was `bcftools mpileup -a AD` without `call`, which
+needs no read groups. CRISP with `--sm 0` uses file names. The 09-17 notebook kept GATK ploidy-12 only as an
+optional upgrade that was not on the path.
+
+**CRISP benchmark (09-17, pool 1B, chr10 gene space, 15.3 Mb).**
+
+| Finding | Value |
+|---|---|
+| Runtime | 2.5 min per pool per 15 Mb, single-threaded, 294–411 MB RSS |
+| Extrapolation at 384 pools | ≈ 160 CPU-h genome-wide gene space; ≈ 2,200 CPU-h whole genome |
+| `LowDepth` label | removes 93–99% of records; a hard-coded label (<1 filtered read per haplotype), unchanged by `--mincov 0` |
+| PASS vs assembly alleles | 35% of all SNP records match a TIL18/Gigi allele, only 12–20% of PASS SNPs do |
+| Per-pool AC > 6 (impossible under the design) | 2.4–4.1% of PASS-site pools |
+| No BED, 12 pools, chr10:20–30 Mb | ~5× slower than gene-space testing |
+
+Conclusions recorded: ignore CRISP's FILTER column and use the record-level per-pool counts with our own depth
+ceiling and likelihood. Set `--filterreads 0`, because the default drops reads with many mismatches, which is
+the same mechanism that removed divergent teosinte in MaizeGDB 2026 (Section 5). CRISP output is a candidate
+list, not a call set.
+
+Sources: memory `donor-haplotype-capture-method.md`, `read-group-header-vs-per-read.md`,
+`agent/PLAN_phg_hq_variants_20260917_143613.md` (§2, §3), `docs/PROJECT_STATE.md`.
+
+## 5. Site panels
+
+On 09-10 the site set was fixed in advance: the BzeaSeq biallelic sites (~27M). By 09-17 the question was
+which panel to use for candidate sites. Three sources were examined.
+
+### 5.1 Chen 2022 is the source behind both panels
+
+The teosinte in MaizeGDB 2026 and Schnable 2023's 224 "Genetics diversity of Zea" are the same Chen 2022
+material. So no panel adds distal-taxon genomes that the other lacks. The first 09-17 note said MaizeGDB 2026
+teosinte = Chen 2022 + Hufford 2012 (57 Zv/Zx). The joined result later that day corrects this: both teosinte
+bioprojects are Chen 2022 (PRJNA641489 = 183 proximal-clade, PRJNA816255 = 57 distal-clade). The 2026 web
+table mislabels these two rows, and there is no Hufford 2012.
+
+| Distinct individuals | Schnable 2023 | MaizeGDB 2026 |
+|---|---|---|
+| Chen 2022 teosinte (of 237) | 201 | 237 |
+| mexicana | 79 | 81 |
+| parviglumis | 67 | 70 |
+| nicaraguensis | 14 | 14 |
+| diploperennis | 10 | 20 |
+| luxurians | 9 | 14 |
+| huehuetenangensis | 1 | 5 |
+| perennis | 8 | 19 |
+| Wang 2017 TIL lines | 16 | 9 |
+
+### 5.2 MaizeGDB 2026: reference bias
+
+On chr10, 12.54M sites are carried by at least one of the 249 teosinte samples (11.88M biallelic SNPs). 79%
+of Schnable's 3.21M chr10 SNPs are in that set with identical alleles.
+
+**Critical finding (job 867016).** The 57 distal-clade samples have essentially no non-reference genotypes.
+Luxurians Ames 21863 has 1,159 hom-alt + 26 het out of 7.2M called chr10 sites. In chr10:20–25 Mb it has 28
+hom-alt and 0 het, against 14,930 hom-alt + 6,803 het in Schnable 2023 for the same individual. Depth is not
+the cause (23× vs 28× median on SRA).
+
+**Mechanism (mapping-bias test).** At Schnable's hom-alt sites for the same individual, the 2026 genotype is
+missing, not 0/0:
+
+| Individual | shared sites | ./. | 0/0 | 1/1 |
+|---|---|---|---|---|
+| Ames 21863 (Zl) | 9,993 | 9,824 | 159 | 10 |
+| 5D1 (Zd) | — | 7,174 | 187 | 0 |
+| RIL003 (Zl) | — | 7,386 | 1,587 | 7 |
+| TIL11 (Zv) | — | 2,266 | 3,068 | 4,332 |
+
+Reads at divergent positions were removed upstream. The effect also reaches the proximal clade: TIL11
+recovers only 44% of its Schnable hom-alt sites. So the 2026 site list is biased against divergent sequence
+for every teosinte.
+
+**Which 2026 set.** The 09-17 notebook recommended the 290M high-coverage set over the 98M high-quality set
+(whose LD filter removes rare alleles). The user deleted the 290M download that evening as requested in
+error, and the 98M set replaced it. `docs/PROJECT_STATE.md` records "290M set deleted, 98M kept". That
+supersedes the recommendation.
+
+### 5.3 Schnable 2023 (Grzybowski et al. 2023) is imputed
+
+Correction by the user, 09-17 late: all Schnable 2023 genotypes are **imputed**. The sign is zero missingness
+in every sample. Consequences: it is not a truth set. Schnable-vs-2026 disagreements are explained by
+imputation error as readily as by read loss. Per-taxon genotype composition and "genuine heterozygosity"
+arguments built on it do not stand. It is used for **positions and alleles only**. Genotype-grade sources for
+teosinte are the PanAnd assemblies aligned to B73 and the BC1 pooled counts. The PanAnd founders per taxon
+are Zd-Gigi, Zx-TIL18, Zv-TIL11, Zh-RIMHU001 and Zl-RIL003, and only Gigi and TIL18 were staged in the chr10
+graph.
+
+### 5.4 SNP50K
+
+"SNP50K" is the user's curated set of ~50,000 sites taken from the Schnable 2023 variants. The user's wideseq
+pipeline counts REF/ALT reads at these sites in the BC2S3 skims (`allelic_counts50K.tsv`), and RTIGER and
+nilhmm run on those counts. It is not a SNP array. About 70% of its sites are non-informative for any one
+donor, because the donor carries the B73 allele there. For comparison, the 09-18 per-site test gave an upper
+bound of ~15% non-informative for tier A founder alleles and ~49% for tier B.
+
+Sources: `agent/PLAN_phg_hq_variants_20260917_143613.md` (§3, site-source evaluation), memory
+`maizegdb2026-panel.md`, `schnable2023-is-imputed.md`, `snp50k-is-curated-schnable-set.md`,
+`phg-founder-assemblies.md`, `docs/PROJECT_STATE.md`, `docs/DECISIONS.md` (row 2026-09-17).
+
+## 6. Conclusion: discover per donor, panels as annotation
+
+**Intermediate position (09-17).** The candidate list was to be Schnable 2023 (all taxa, positions only) ∪
+the MaizeGDB 2026 teosinte subset (proximal clade + MQ annotation) ∪ PanAnd assembly SNPs, with CRISP as a
+de novo pass. The panel full set was ~47M sites with no MAF filter. The MaizeGDB memory note still describes
+this panel-based list as "how to apply". It is superseded by the per-donor decision below.
+
+**Decided 09-18 (user + Rubén).** Discovery is **per donor**. A joint site list is dominated by the donors with
+many samples. When H_d is built for donor X, it then carries thousands of sites that segregate only in donor
+Y, and at ~15× a few stray alt reads can write a Y allele into X's founder. Per-donor discovery keeps a site
+out of X's candidate list unless X's own reads support it. Alleles shared across donors are found in each
+donor's own run. Panels and assemblies remain as annotation, for example the known-vs-novel split used to
+calibrate thresholds and the assembly-match check of founder alleles. `docs/PROJECT_STATE.md` sums it up as
+"discover per donor from the BC1 pools (CRISP), panels only as annotation".
+
+**CRISP input.** The 09-18 notebook added two B73 control pools to every per-donor CRISP run as a zero class.
+`docs/DECISIONS.md` (2026-09-23, correcting its own row from the same day) now sets CRISP input = the donor's
+BC1 samples + its BC2S3 pool only. The B73 comparison moves to step 4 (zero class), using ERR3288215 and the
+B73 check pool (skim10) counted at the vetoed sites.
+
+Sources: `agent/PLAN_phg_hq_variants_20260917_143613.md` (§3), `docs/DECISIONS.md` (rows 2026-09-17,
+09-18, 09-23), `docs/PROJECT_STATE.md`, memory `maizegdb2026-panel.md`.
+
+## 7. Contradictions resolved
+
+| Earlier statement | Superseded by |
+|---|---|
+| Each barcode = one diploid BC1 plant; pool model "false" (09-10) | 6-plant pools (Rubén; `docs/DECISIONS.md`; user 09-23) |
+| Keep fgbio `DemuxFastqs` (09-10 plan) | cutadapt exact match (09-11 handover) |
+| Pool 1B ~29× per plant, from file size (09-11) | 13–25× per sample, median ~17.6×, measured (09-14) |
+| MaizeGDB 2026 teosinte includes Hufford 2012 | both bioprojects are Chen 2022; web table mislabelled |
+| Use the 290M high-coverage set, not the 98M | 290M deleted; 98M kept (`docs/PROJECT_STATE.md`) |
+| Candidate list = panels ∪ assemblies (09-17; MaizeGDB memory note) | per-donor CRISP discovery, panels as annotation (09-18) |
+| B73 skim pool = 11 samples, 4.44× | 10 samples, 4.46× (PN3_SID236 dropped, 09-18) |
+| B73 control pools inside each per-donor CRISP run (09-18; DECISIONS 09-23 first row) | CRISP = donor's BC1 samples + BC2S3 pool; B73 at step 4 (DECISIONS 09-23 correction) |
+
+Sources: all files listed above; `docs/DECISIONS.md` is authoritative where they differ.

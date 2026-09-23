@@ -1,0 +1,180 @@
+---
+title: "Marker union pilot — how the design was reached"
+subtitle: "From the PHG missing-data artifact to a union of informative sites, a union donor genotype, and a two-pair chr10 pilot (2026-09-23)"
+author: "Fausto Rodríguez-Zapata"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    embed-resources: true
+execute:
+  echo: false
+---
+
+**What this is.** The reasoning, in order, that led to the pilot in `docs/PLAN_marker_union_pilot.md`. It starts from a painting problem,
+passes through what the genotype at a site actually depends on, what the BC1 design guarantees, how the QTL scan in zealhmm is built,
+and ends with the donor choice and the first runs. Earlier work is summarized in workbooks 01–04 of this folder; this notebook cites
+them rather than repeating them.
+
+::: {.callout-note}
+## Outcome (holds as of 2026-09-23)
+- Two layers: **(1) ancestry mosaic** per line from RTIGER on the donor's tier-A sites; **(2) genotypes** from PHG, with a founder that
+  states the donor's allele (ALT or REF) at the **union of tier-A sites of all donors**, rasterized at those sites.
+- PHG find-paths is fixed at F = 0, stay 0.99999 (the 09-22 grid was insensitive). The lever left is the founder.
+- R/qtl stays out of the pilot (needs n > 100 lines per taxon). When it runs, the 0.1 cM grid is rebuilt from the new markers.
+- Pilot = chr10, tier A. Pair A (Zd.0040_P1 + Zx.0100_P4) for the union now; pair B (Zv.0490_P4 + Zx.0150_P2) for coverage mixing,
+  prepared in a second session.
+- Discovery procedure (DECISIONS 2026-09-23): CRISP on the donor's BC1 samples + its BC2S3 pool only; the B73 pools enter at step 4.
+:::
+
+## 1. The starting problem: PHG gaps in the paintings
+
+The chr10 paintings of the Zd.0040_P1 lines compare RTIGER, PHG (F = 0), nnil and bbnil. PHG imputes one state per reference range
+(lowcopy ranges), while the other callers work at marker positions and are turned into segments by run-length encoding (RLE). Putting
+PHG ranges next to RLE segments made many missing-data intervals appear in the PHG lane.
+
+![Four callers on the RTIGER-introgressed Zd.0040_P1 lines + B73 control, chr10 (local copy).](../../agent/qcset_designB_results/callers_introg/Zd0040_introg_RTIGER_PHG_nnil_bbnil.png)
+
+The goal stated for the downstream work: every track should reflect the imputed genotypes **as rasterized at the variant positions used
+as input**, so tracks, GWAS markers and the linkage-mapping dataset all come from the same positions. nilhmm already has a function that
+rasterizes ranges; what is missing is the right set of positions and the donor's allele at each.
+
+## 2. What the genotype at a site depends on
+
+For a BC2S3 line from donor *d*, at a site *s*, the line's genotype is fixed once two things are known: its ancestry dosage at *s*
+(0, 1, 2 copies of the donor segment) and the donor's allele at *s*.
+
+| donor allele at *s* | ancestry at *s* | genotype |
+|---|---|---|
+| REF (site not informative for *d*) | any | 0 |
+| ALT | *k* ∈ {0,1,2} | *k* |
+| missing | 0 | 0 |
+| missing | 1 or 2 | unknown — the only cell that needs imputation |
+
+So a genotype table on a common set of sites needs the donor's allele at every site of that set, including sites that were discovered
+in **other** donors. That is the "synthetic DH per donor" (DH*d*) extended from the donor's own informative sites to the union of all
+donors' sites.
+
+## 3. What the BC1 design guarantees (correction made during the session)
+
+An early draft of this plan worried that a heterozygous teosinte donor could put a different haplotype in different lines. That was
+wrong and was retracted:
+
+- The F1 is H*d*/B73: it carries **one** haploid donor gamete. Every BC1 plant and every BC2S3 line of that donor carries only H*d* alleles.
+- One BC1 sample = 6 pooled plants; a donor has 1–5 samples (typically ~5, ~30 plants), so every segment of H*d* is present;
+  detection depth, not presence, is the limit.
+- A site with good pooled depth and no ALT across the donor's samples is REF. Step 4 already encodes this: tier `ref` = LLR ≤ −4 and
+  pooled n ≥ 12; tier A = LLR ≥ 6.9 with ALT in ≥ 2 pools (workbook 02).
+
+The single-plant documents of 09-10 (`agent/SUMMARY.md`, `agent/PLAN.md`) are superseded on this point (workbook 01).
+
+## 4. Two layers, and why PHG stays
+
+The data suggest two layers:
+
+1. **Ancestry mosaic** — fast; RTIGER on the donor's tier-A sites (the 09-21 decision, rigidity 500).
+2. **Genotypes** at the union sites — informative and non-informative for each donor.
+
+A projection of layer 1 through DH*d* would give layer 2 by a join. PHG is kept for layer 2 (Rubén wants it); the aim is for the PHG
+table on the union of informative sites to come closer to the real genotype table, which is what GWAS needs. Its two known weaknesses
+in the pilot are fragmentation relative to RTIGER and ALT under-calling (workbook 03). The projection stays available as the cheap
+comparator.
+
+## 5. PHG parameters are not the lever
+
+The 09-22 stay × F grid on Zd.0040_P1 (job 921951) scored DSC/MCC against RTIGER and barely moved across the grid (best stay 0.99,
+F 0.2: DSC 0.744, MCC 0.697). The no-call rate was a flat 22% in every cell: 1,657 of 8,095 lowcopy ranges have identical B73 and donor
+haplotypes, and 33 have no donor haplotype. That is a property of the founder. Settings were fixed at F = 0, stay 0.99999, and a
+proposed re-tuning step was dropped from the plan. The founder built from the union DH*d* is aimed at exactly that 22%; its drop is the
+pilot's go/no-go for PHG (workbook 03).
+
+Rasterizing, scoring and export reuse existing code: zealhmm `R/metrics.R` (`rasterize_states`, `rasterize_named`, `marker_dsc`),
+`thin_markers`, and the 012 → TSV/VCF/PLINK exporter in `zeal_export_release.R`.
+
+## 6. The QTL scan in zealhmm, and what it implies
+
+`zealhmm/scripts/zeal_rqtl_scan.R` runs one pooled R/qtl `bcsft` cross of all families: genotype = ancestry coded A/H/B (B73 / het /
+teosinte, whatever the donor), `calc.genoprob` with error.prob 0.01, Haley–Knott `scanone`, 1000 permutations, models without covariate
+and with the taxon covariate (the reported one), per-taxon additive scans on expected dosage, peaks by peakdrop 5. Markers and map are
+the TeoNAM JLM 0.1 cM set (9,063 markers, TeoNAM cM), with the SNP50K RTIGER mosaic projected onto them by nearest block; no ZEAL
+`est.map` is estimated because of the excess heterozygotes in the current mosaic.
+
+Consequences for this plan:
+
+- The scan needs **ancestry** along a map, so its input is layer 1 (or PHG's ancestry, if PHG wins on the QC set), not the union genotypes.
+- The TeoNAM JLM grid belongs to TeoNAM's marker set. Since markers are being rediscovered, the grid is **rebuilt** from the new markers:
+  union markers → cM by `nilHMM::bp_to_cm` on the TeoNAM native v5 map (as `zeal_snp50k_cm_grid.R` does) → 0.1 cM greedy thinning (as in
+  `zeal_jlm_build.R`). Rasterize with NA in gaps between disagreeing segments so `calc.genoprob` gives probabilities there.
+- **No R/qtl in the pilot**: the pilot families have ~10–39 lines each; the scan waits until there are > 100 lines per taxon.
+
+## 7. Choosing the pilot donors
+
+The union needs at least two donors with discovery done, so a one-donor pilot tests nothing. The coverage question needs donors with
+lines in both BC2S3 batches (CLY2023 at ~0.4x, Guadalajara at ~1.2x).
+
+**Count correction.** The first donor table counted 1.2x lines from `meta/bc2s3_batch2_manifest.csv`, which included plate BZeaV2_5.
+That plate was never sequenced and will not be (no library pool or barcode). The manifest was filtered to the four sequenced plates
+(BZeaV2_1–4, 384 wells; commit 372e3b2) and the table regenerated. Mexicana 1.2x lines drop from 200 to 142; Zx.0510_P1, the first
+mexicana pick, has none.
+
+| taxon | donors | lines 0.4x | lines 1.2x (sequenced) |
+|---|---|---|---|
+| Zx | 55 | 616 | 142 |
+| Zv | 46 | 394 | 220 |
+| Zd / Zl / Zh / Zm | 6 / 5 / 2 / 18 | 255 / 121 / 61 / 29 | 0 |
+
+**Pair A — union now.** Zd.0040_P1 (3 BC1 samples in pool 1B, 39 lines at 0.4x) and Zx.0100_P4 (2 BC1 samples in 1B, 10 lines at 0.4x)
+already have chr10 discovery and MAPQ20-realigned lines (job 910286). They cannot test coverage mixing.
+
+**Pair B — coverage mixing.** Zv.0490_P4 (16 / 14 lines; BC1 and 1.2x CRAMs on hazel since 09-22) and Zx.0150_P2 (10 / 11; BC1 in
+1A + 1B, so only S_1A_4 needs aligning). Zx.0150_P2 was chosen over Zx.0090_P2 (12 / 11, five BC1 samples in 2A–2D) to avoid a ~13 h
+demux/align wait. Pair B is prepared in a second Claude Code session (handover `agent/handover_20260923_170000_mixing_prep.md`) and
+joins the union when its step-4 tables exist.
+
+## 8. Step 0 and the first runs
+
+Step 0 found that `pilot_1B_chr10/union/step4/*.sites.tsv.gz` (09-20) is the older joint discovery without the BC2S3 witness, and that
+the current Zd.0040_P1 table (v4/v5, 09-21) used the old unfiltered BAMs for its witness pool. So both pair-A donors are to be
+re-discovered with the same procedure on the realigned reads.
+
+The procedure itself was corrected on 2026-09-23 (docs/DECISIONS.md): CRISP runs on the donor's BC1 samples plus its BC2S3 pool only;
+the two B73 pools (ERR3288215 and the check pool skim10) are counted at the sites kept by the veto and enter at step 4 as the zero class.
+That is implemented in `PHG/bin/donor_discovery_chr10.sbatch`.
+
+A first Zx.0100_P4 run (job 932554, `PHG/bin/discovery_perdonor.sbatch`) put the B73 pools inside CRISP, so it does not follow that
+decision. Two observations from it still inform the design:
+
+| | Zx.0100_P4, job 932554 |
+|---|---|
+| CRISP records | 345,952 |
+| kept by the witness veto | 79,119 (23%; the Zd.0040_P1 v4 run kept 57%) |
+| tier A / B / C / ref | 40,434 / 17,253 / 6,391 / 1,399 |
+
+- With only 10 lines at ~0.4x, "≥ 1 ALT read in the witness pool" drops many real alleles; the effect grows as the number of lines shrinks.
+- The step-4 table holds almost no REF calls, because the veto runs before step 4 and keeps only sites where the donor's lines show ALT.
+  REF at other donors' sites must therefore come from the second counting pass, classified **without** the veto.
+
+## 9. The pilot steps
+
+| # | step | output |
+|---|---|---|
+| 0 | confirm inputs (current step-4 tables, BC1 CRAMs, realigned lines) | done; re-discovery needed |
+| 1 | union of tier-A sites of all donors; shared / other-only / multi-allelic counts | `union_chr10.tsv.gz` |
+| 2 | second counting pass: union sites absent from the donor's own table, over its BC1 CRAMs + BC2S3 pool | per-donor counts |
+| 3 | DH*d* on the union: step-4 classifier (no veto) → ALT / REF / missing | `dhd_union_chr10.tsv.gz` |
+| 4 | union founder: hom-ALT at ALT, reference at REF, nothing at missing → pseudo-assembly → two-founder PHG DB | founder per donor |
+| 5 | PHG, F = 0, stay 0.99999 | imputed paths |
+| 6 | `rasterize_states` at the union sites → 012 → `zeal_export_release.R` | matrix, VCF |
+| 7 | evaluation: no-call vs the 22% baseline; `marker_dsc` PHG vs RTIGER; B73 checks; 0.4x vs 1.2x within pair-B families | table + paintings |
+
+## Open decisions
+
+1. Union from tier A only (pilot) — A+B later?
+2. DH*d*-missing cells: leave NA and filter, or impute at the end?
+3. Donors with 1–2 BC1 samples: keep the same-accession fallback, or flag them?
+4. Witness veto with few lines: keep "≥ 1 ALT read" as is, or relax it for small families?
+
+**Sources.** This session's discussion (2026-09-23); `docs/PLAN_marker_union_pilot.md`; `docs/DECISIONS.md`;
+`zealhmm/scripts/zeal_rqtl_scan.R` and `zealhmm/analysis/zeal-rqtl-dta-lod-profile.qmd`; `agent/donor_batch1_vs_batch2_counts.tsv`
+(regenerated); `meta/bc1_well_map.csv`, `meta/bc2s3_batch2_well_map.csv`; hazel job logs 908025, 908026, 910286, 932554.

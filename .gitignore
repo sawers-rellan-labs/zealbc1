@@ -24,3 +24,7 @@ logs/*
 # OS / editor
 .DS_Store
 *.swp
+
+# rendered Quarto notebooks (embed images from gitignored agent/)
+docs/notebooks/*.html
+docs/notebooks/*_files/

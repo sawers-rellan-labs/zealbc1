@@ -1,0 +1,348 @@
+---
+title: "PHG imputation and callers"
+subtitle: "PHG imputation of the BC2S3 lines on chr10 and how it compares with RTIGER, nnil and bbnil, 2026-09-11 to 09-22"
+author: "Fausto Rodríguez-Zapata"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    embed-resources: true
+execute:
+  echo: false
+---
+
+**What this is.** A record of past work, not a plan. From 2026-09-11 to 2026-09-22 PHGv2 (2.5.14) was used to
+impute the BC2S3 skim lines of donor Zd.0040_P1 (and Zx.0100_P4) on chromosome 10. The PHG calls were then
+compared with RTIGER and with two nilHMM callers. This notebook covers, in date order, the founder sets
+that were tried, the PHG problems met along the way, the `find-paths` settings and why they changed, the
+2026-09-22 stay × F grid, the structural no-call, and the four-caller comparison on the introgressed Zd.0040
+lines. Every number comes from the files named in each section's "Sources" line. Where the sources disagree,
+the later decision wins, and the superseded one is named.
+
+::: {.callout-note}
+## Outcome (what holds on 2026-09-22)
+
+- **Graph:** per donor, **two founders**, B73 + the donor's synthetic haplotype H_d. The taxon founder was
+  dropped on 09-18. The reference ranges are **lowcopy** (gene ±500 bp ∪ non-TE intergenic; 8,095 ranges on
+  chr10). The gene-only ranges of 09-18 were superseded on 09-20/21.
+- **PHG founder:** Zd.0040_P1 v4, the A+B founder witnessed by the BC2S3 pool, **103,809 alleles**
+  (decision of 09-21 01:50).
+- **find-paths:** **F = 0, stay (`--prob-same-gamete`) 0.99999**, min-reads 1. This is the setting for pools,
+  because the BC2S3 skims are 6-plant field-plot bulks. The user fixed it after the 09-22 stay × F grid (job
+  921951). The grid barely varied (DSC 0.718–0.744) and was best at stay 0.99 / F 0.2 (DSC 0.744, MCC 0.697).
+- **No-call is structural:** 22% in every grid cell. In 1,657 of 8,095 ranges the B73 and donor haplotypes
+  are identical, and in 33 more the donor has no haplotype. This comes from the founder. find-paths settings
+  cannot change it.
+- **Comparison:** RTIGER, PHG (F = 0), nnil and bbnil were painted on the six RTIGER-introgressed Zd.0040 lines
+  plus the B73 control. PHG no-call ranges are bridged (RLE and fill) for display. All callers are also
+  back-projected onto the 103,809 informative founder markers. Among the count callers, bbnil is closest to
+  RTIGER and nnil is speckled. The B73 control is clean in all four callers.
+- **Known PHG defects:** dosage under-call (ALT → HET) and fragmentation. zealhmm `R/metrics.R`
+  (`rasterize_states`, `marker_dsc`) is the canonical scorer. Marker-level scoring is parked; for now only the
+  painting was needed.
+:::
+
+# 1. PHG setup: founder sets tried
+
+The first design used **per-taxon founders**: B73 NAM v5 plus five PanAnd teosinte assemblies, one per taxon
+(Zx-TIL18, Zv-TIL11, Zd-Gigi, Zl-RIL003, Zh-RIMHU001). The chr10 pilot was meant to measure the resources of a
+full build. Of the five, only **Gigi and TIL18** were aligned to B73 and loaded into the chr10 DB
+(`vcf_dbs`: B73, Gigi, TIL18). The per-taxon founder design was marked "NOT decided" from the start.
+
+On 09-17/18 PHGv2 turned out to store a haplotype only as sequence in the AGC archive, and `gvcf2hvcf` pulls
+that sequence through ASM_* coordinates. So the donor founder was built as a **pseudo-assembly on B73
+coordinates**: B73 chr10 with the donor's tier A/B alleles written in by `bcftools consensus`. It was loaded
+into a copy of the pilot DB, and the imputation graph had three founders (B73 + taxon + donor).
+
+| date | founder set / graph | ranges | donor alleles (chr10) | outcome |
+|---|---|---|---|---|
+| 09-11/12 | per-taxon: B73 + Gigi + TIL18 (2 of 5 staged) | gene ± 500 | — | DB build only |
+| 09-17/18 | 3 founders: B73 + taxon + H_d pseudo-assembly | 4,685 (H_d has haplotypes in 2,517 Zd / 2,516 Zx) | Zd 128,302; Zx 106,868 (tiers A+B) | works end to end; dosage under-call and fragmentation |
+| 09-18 | **2 founders: B73 + H_d**, taxon dropped | 2,489 gene ranges (donor 2,473) | 128,302 | agreement with RTIGER fell (see §4) |
+| 09-19 | 2 founders, strict founder v2 (alt in > 1 pool) | gene-only | 75,014 | introgressed 84.8 → 87.4% agree |
+| 09-20 | 2 founders, union (lowcopy) ranges | 8,095 (26.0 Mb; haplotypes in 8,062 Zd / 8,058 Zx) | Zd 166,789; Zx 140,365; v3 174,725 | introgressed 87.3%, clean 99.9% |
+| 09-21 | founder **v4**: BC2S3 pool as required witness | 8,095 | **103,809** (A+B) | 89.6% vs poolseq RTIGER |
+| 09-21 | founder v5: tier A only | 8,095 | 48,791 | 88.2%; PHG keeps v4 |
+
+The taxon founder was dropped on 09-18. It had stood in for the intergenic ranges where H_d had no
+haplotype, and the paths alternated B73/H_d ↔ B73/taxon from range to range. The result was dosage
+under-call and fragmentation. It is also another accession, with about 50% allele match. The user ruled out
+an all-donor graph and a taxon fallback in the imputation graph. Ranges the donor lacks must show as missing,
+never as B73 or taxon. PHG 2.5.14 has no per-sample ancestor input, so the graph is restricted at export
+(`export-vcf --sample-names B73,<donor>`).
+
+The ranges changed twice. The **gene-only** set came first, from the 09-18 memory note. The **lowcopy/union**
+set was decided on 09-20 and kept on 09-21, when fixed 1 Mb and 250 kb bins were rejected because they gave a
+false HET background. So any "gene-only ranges" in the 09-18 notes is superseded.
+
+Sources: agent/PHG_PILOT_chr10.md; agent/pilot_1B_chr10_runlog_20260917.md (09-17 → 09-21 sections);
+docs/PROJECT_STATE.md; docs/DECISIONS.md (09-18, 09-20, 09-21); memory per-donor-imputation-graph,
+phg-founder-assemblies, pilot-1b-chr10-phg-route.
+
+# 2. PHG facts and pitfalls
+
+These all came up during the chr10 build and imputation.
+
+| issue | what happened | fix |
+|---|---|---|
+| `agc append` | PHG's `agc-compress` appends when the archive exists. Ranged `agc getctg <contig>@<donor>:a-b` then aborts (core dump) for the appended donor; whole-contig retrieval works | move the old archive aside and **re-create** it with all founders |
+| `gvcf2hvcf` query batching | the default `--num-ranges-per-agc-query -1` makes one `agc` call per range. It ran 88 min with no output (TIMEOUT) | `--num-ranges-per-agc-query 500`: 5,808 ranges in 12 queries, gvcf2hvcf in 1 min |
+| keyfile header | `map-kmers` requires the camelCase column `sampleName`, though `--help` says `samplename` | camelCase keyfiles |
+| shared haplotypes | in 1,657 of 8,062 union ranges the donor haplotype is byte-identical to B73 (same hapid). PHG reports the range under B73's name, and the first parser counted it as B73/B73 | treat shared-hapid ranges as **no call** (`pilot_step9_compare_rtiger_v5.R`) |
+| `hvcf2vcf` | needs a pangenome VCF; no `--regions` or `--sample-names` option | see §7.4 |
+
+Two checks confirmed that the founder reaches the graph. At 5 tier-A positions, B73 has the REF base and the
+pseudo-assembly has the ALT base. In the one-range test, 2,006 of 2,006 Zd ranges with a tier-A site have a
+hapid that differs from B73 (0 identical), and for Zx 2,135 of 2,135. On 09-21 01:05, the shared-hapid
+parsing error was found to account for 2,380 of 9,061 (26%) B73 calls inside RTIGER-50K teosinte blocks.
+Excluding shared ranges left the 1 Mb agreement unchanged (89.6 introgressed, 100 clean, B73 check 0 bins).
+The shared ranges had received almost no reads in any case.
+
+Sources: agent/pilot_1B_chr10_runlog_20260917.md (attempts 3–5, "PHG 2.5.14 facts", 09-21 01:05 and 01:14);
+memory pilot-1b-chr10-phg-route; 09-22 session transcript.
+
+# 3. The BC2S3 skims are 6-plant bulks
+
+On 09-19, around 01:20, the user established that each BC2S3 skim is a **6-plant bulk from one field plot**.
+The pedigrees are single-plant descents (P#.1.1.1), and the 6 plants per skim are S3 sibs of one S2 plant, so a
+skim holds 12 sampled haplotypes. The per-range H_d read fraction agreed:
+
+- Zd00401454's ALT block peaks at 0.9–1.0 (a fixed family).
+- Zd00401431's HET block centres on 0.3–0.4 (about 4–5 of 12 haplotypes teosinte).
+- Zd00401111 is flat from 0 to 1.
+
+It followed that PHG's diploid `find-paths` (fractions 0 / 0.5 / 1) is mis-specified for a segregating pool.
+On 09-19 ~02:00 the user corrected one inference. Bulking does raise HET (any unfixed region). But it does not
+by itself create B73 runs under independent Poisson sampling, and the B73 runs seen then were line-specific.
+
+The 09-22 simulation took this further. 6-plant equimolar bulks at k/12 dosage were simulated, and a sweep
+from the same founders was imputed (Gigi graphs; plot qc05). PHG **shreds the segregating block** at both
+1.2x and 0.05x, while the fixed block (qc04) stays solid in every lane. The earlier single-genome sweep had
+stayed clean. The qc05 F sweep then found the cause in the inbreeding prior: F = 0.0–0.2 matches the truth
+best, F = 0.3–0.9 adds REF gaps and stripes, and F = 1.0 collapses into REF/ALT slivers with no HET.
+
+The user concluded that at λ = 0.05, **F = 0 is the only setting that keeps the HET fragment whole**. That is
+the setting that reconstructs the BC2S2 segregation of the BC2S3 pools, called the "pool setting" from here on.
+
+Sources: agent/pilot_1B_chr10_runlog_20260917.md (09-19 01:20 and the correction at ~02:00); 09-22 session
+transcript (6-plant bulk arm, qc05 F sweep job 920401, paintings job 920413); git log 09-22 (read_mixing
+bulk sweep, breakpoint_sim_bulk, f_sweep_qc05).
+
+# 4. find-paths settings over time
+
+| when | stay (`--prob-same-gamete`) | F (`--inbreeding-coefficient`) | min-reads | graph / founder | note |
+|---|---|---|---|---|---|
+| 09-17/18 first pilot | 0.99 (default) | default | — | 3-founder | location right, dosage under-call, fragmentation |
+| 09-18 night (v2) | **0.9999** | **0.86** | 1 | gene-only 2-founder | Zd mean agree 91.9 → 84.9, Zx 93.3 → 91.8; B73 check 0 → 12 teosinte bins |
+| 09-18 rerun (v3) | 0.99 | 0.86 | 1 | same | agree within ±1.5 of both earlier runs: calls did not depend on stay |
+| 09-19 – 09-20 (v4 strict, union v5/v6) | 0.99 | 0.86 | 1 | strict / union | the "PHG_A" setting |
+| 09-20 22:28 | **0.9991** | 0.86 | 1 | union v3 | stay at the genetic value; Zd introgressed 87.2 → 87.5 |
+| 09-21 (founders v4, v5) | 0.9991 | 0.86 | 1 | union v4 / v5 | 89.6% (v4) / 88.2% (v5) vs poolseq RTIGER |
+| 09-22 (real Zd.0040, job 921443) | 0.9991 | **0** | 1 | union v4 | segregating blocks become continuous HET |
+| 09-22 (job 921723) | **0.99999** | **0** | 1 | union v4 | longer HET runs; kept |
+
+The 0.86 value was chosen to match RTIGER's 15% HET among teosinte loci. PHG's F is the start weight on
+homozygous pairs plus a per-range HET penalty of about |ln(1−F)|. The 0.9991 value came from the genetic rate:
+the zealtiger fit gives λ = 4.72 per Morgan as the exit rate.
+
+On 09-20 a simulation contrasted "PHG B" (stay 0.9999, F = 0) with the user's setting "A" (0.99/0.86/1). With
+a single-genome truth, F = 0 needed only 15% non-informative sites to turn ALT into HET. That was before the
+skims were modelled as bulks. On 09-22 the 6-plant-bulk result replaced the F = 0.86 setting with F = 0.
+
+The user's reading of the 09-22 real-data F = 0 paintings was that the higher stay together with F = 0 captures
+the HET of the segregating pools, at the cost of more B73-background HET and weaker homozygous-ALT calls.
+Old (unfiltered) and MAPQ20 reads gave almost identical PHG paintings at every setting tried, so read
+filtering does not drive the pattern.
+
+Sources: agent/pilot_1B_chr10_runlog_20260917.md (09-18 night, step7_v3, 09-20 20:50, 21:25, 22:28, 09-21
+00:44, 01:44); memory per-donor-imputation-graph; 09-22 session transcript (jobs 921413/921443, 921723);
+git log 09-21/22 (phg_lane_mapq20, real_zd0040_F0).
+
+# 5. The 2026-09-22 stay × F grid on Zd.0040_P1
+
+The user asked for the setting that maximizes classification performance, **with the RTIGER track treated as
+truth**. The objective was **DSC**, the user's name for macro-F1 (the mean per-class Dice
+2TP / (2TP + FP + FN) over REF / HET / ALT), with multiclass MCC as a chance-corrected check. The grid had
+5 stay values {0.99, 0.999, 0.9991, 0.9999, 0.99999} and 3 F values {0, 0.1, 0.2}, giving 15 find-paths cells
+on the MAPQ20 reads with the read-mappings reused (job 921830). It was scored per reference range over all
+lines by `PHG/analysis/score_stayF_grid.R` (job 921943). The first MCC came out NA from integer overflow; it
+was recast as a double and rerun as job 921951.
+
+The **B73 control is included** in the score. The user pointed out that it is a real imputation and measures
+the baseline error. No-call ranges are left out of the confusion matrix and reported separately.
+
+| rank | stay | F | DSC | Dice REF / HET / ALT | HET recall / precision | ALT recall / precision | no-call |
+|---|---|---|---|---|---|---|---|
+| 1 | 0.99 | 0.2 | **0.744** (MCC **0.697**) | .98 / .60 / .66 | .73 / .51 | .50 / .96 | 0.22 |
+| 8 | 0.99 | 0.0 | 0.735 | .98 / .60 / .63 | .76 / .49 | .47 / .98 | 0.22 |
+| 15 | 0.99999 | 0.0 | 0.718 | .98 / .62 / .55 | .79 / .49 | .51 / .99 | 0.22 |
+
+What the grid shows: DSC is almost flat (0.72–0.74), so the setting matters little on this metric. HET is the
+weak class in every cell (Dice about 0.60, precision about 0.50). F = 0.2 edges out F = 0 through ALT recall.
+No-call is 22% in every cell.
+
+The **parameters were fixed at F = 0, stay 0.99999** (the pool setting), which is the rank-15 cell. The grid
+does not overturn that choice, because the scores barely move. On 09-23 the user rejected a proposal to tune
+min-reads, F or stay again, since that had already been done. What PHG can still change is the founder, not the
+`find-paths` parameters.
+
+Sources: headers of PHG/analysis/score_stayF_grid.R; git log 09-22 (4e6092e, 94006a8); 09-22 session
+transcript (grid table, jobs 921830/921943/921951); memory phg-stay-f-grid-insensitive.
+
+# 6. The 22% no-call is structural
+
+Of the **8,095** chr10 lowcopy ranges, **1,657 (20.5%)** have identical B73 and donor haplotypes (same hapid),
+and **33** more have no donor haplotype. Together that is the 22%, flat across the whole grid.
+
+The user asked how there could be non-informative ranges when every founder allele is informative. The answer
+is that ranges and markers are different things. The ranges are B73-annotation intervals, defined before any
+variant is called. A range that received no founder allele gets only reference blocks, so its donor haplotype
+is byte-identical to B73. There are two reasons a range gets no allele: the donor matches B73 there, or
+discovery missed the variation (no CRISP record, vetoed, below tier, no pool reads). Nobody measured how the
+1,657 split between the two.
+
+Sources: 09-22 session transcript; memory phg-stay-f-grid-insensitive; agent/pilot_1B_chr10_runlog_20260917.md
+(09-21 01:05, 01:14).
+
+# 7. Callers compared on the introgressed Zd.0040 lines
+
+## 7.1 The four lanes
+
+The six lines with more than 10% of chr10 in RTIGER introgression were PN7_SID628, SID590, SID595, SID608,
+SID615 and SID592. They were painted together with the B73 control PN10_SID893, which is pinned on top.
+Script: `PHG/analysis/paint_callers_introg.R` (job 921906).
+
+| lane | what it is | input / settings |
+|---|---|---|
+| RTIGER | reference track | RTIGER segments, chr10 |
+| PHG (F = 0) | two-founder graph, founder v4 | `_imputed_parents.txt`; shared-hapid ranges set to no call |
+| nnil | called-genotype HMM | `call_gt(prior = "flat")` → `call_ancestry(caller = "nnil", design = "BC2S3")` on founder-site counts |
+| bbnil | BetaBinomial HMM | `call_ancestry(caller = "bbnil", design = "BC2S3", rrate = 1e-4, err = 0.01)` on the same counts |
+
+LB-Impute was considered and not run: the user asked for nnil and bbnil only.
+
+## 7.2 Bridging the PHG no-call ranges
+
+In the first painting the PHG lane was sparse. Only ranges with a call were drawn, so the no-call ranges read
+as fragmentation. The fix came in two commits. `b4662db` RLE-bridged the PHG no-call ranges into continuous
+segments. That still left white gaps, because the lowcopy ranges are not contiguous and the no-calls are
+scattered. The user objected ("the PHG track is full of missing data"), and `daac32b` filled each no-call range
+with the flanking ancestry (`nafill` locf then nocb) and extended the track from 0 to the chromosome length.
+The PHG lane is now gap-free.
+
+The white left in the nnil and bbnil lanes is **not missing data**. Those callers are Viterbi HMMs with no
+missing state. Their `g` has 0 NA and they see the same observed markers. The white is the space between
+marker-narrow segments (job 922405):
+
+| line | observed markers | nnil segments / interior gap | bbnil segments / interior gap |
+|---|---|---|---|
+| Zd00401542 | 52,465 | 3,261 / 29.4 Mb | 284 / 3.5 Mb |
+| Zd00401111 | 56,606 | 2,514 / 11.6 Mb | 922 / 5.6 Mb |
+| Zd00401544/615 (as labelled in the output) | 54,935 | 631 / 4.7 Mb | 411 / 3.9 Mb |
+
+The speckle in nnil comes from forcing a hard diploid genotype onto a pool. Whether to draw nnil as
+contiguous was left as an open question to the user.
+
+![RTIGER / PHG (F = 0, bridged) / nnil / bbnil on the six RTIGER-introgressed Zd.0040_P1 lines plus the B73 control, chr10.](../../agent/qcset_designB_results/callers_introg/Zd0040_introg_RTIGER_PHG_nnil_bbnil.png)
+
+Reading of the bridged painting (09-22): PHG shows continuous segments that match RTIGER (Zd00401542 a solid
+HET block, Zd00401454 a solid ALT block, Zd00401114 the distal ALT block). bbnil follows RTIGER as continuous
+blocks, nnil stays speckled, and the B73 control is clean REF in all four lanes.
+
+## 7.3 Back-projection onto the informative founder markers
+
+The user asked to put all callers on the same positions. `PHG/analysis/paint_markers_introg.R` (commit
+`64470f1`, job 922053) does this in four steps:
+
+1. Take the informative marker set, the **103,809** founder v4 alleles.
+2. Give each marker the state of the PHG range it falls in, and read RTIGER, nnil and bbnil at the same
+   positions.
+3. RLE the per-marker states into segments, with boundaries at the midpoints between markers. `paint_calls`
+   is interval-based, so single markers would draw as 1-bp slivers.
+4. Paint.
+
+![All four callers back-projected onto the 103,809 informative founder markers and RLE'd into segments.](../../agent/qcset_designB_results/callers_introg/Zd0040_introg_markers_RTIGER_PHG_nnil_bbnil.png)
+
+Back-projection does not reduce fragmentation. It changes the sampling grid so that all callers share one
+axis, and the ranges without markers drop out. A first measurement found 1,130 markers (1.1%) inside shared
+ranges and a mean PHG no-call at markers of 6.3% (3.5–10.0% across the 39 lines), falling with coverage (job
+922107). The user objected that a variant site cannot, by construction, sit in an interval with no variant. The
+session then attributed most of the 6.3% to the projection's own handling of range edges and the NA rule for
+shared ranges, and only the 1,130 markers to a real mismatch between the founder table and the graph. That
+split was stated but not measured separately.
+
+## 7.4 The native export detour, and why the back-projection is equivalent
+
+The PHG docs list two exports after `find-paths`:
+
+- **`hvcf2gvcf`** was rejected by the user. A gVCF writes non-variant stretches as reference blocks, so
+  informative sites that PHG imputes as B73 would disappear into those blocks.
+- **`hvcf2vcf`** emits a genotype at every pangenome position, but it needs `--pangenome-vcf-file` built by
+  `merge-gvcfs`. It has no region or sample flag: samples are restricted through the `--hvcf-dir` contents and
+  positions through the pangenome VCF. A run scoped to the 6 lines plus the B73 control (job 922158) failed
+  because **`merge-gvcfs` writes one VCF per reference range**
+  (`pangenome.vcf-chr10_<start>-<end>.vcf`), which would need a concatenation step.
+
+The user judged the RLE back-projection "way easier". For ancestry it is equivalent: PHG imputes one haplotype
+per range, so every informative SNP in a range carries that range's ancestry. `hvcf2vcf` would add only the
+literal VCF encoding and explicit calls at the no-call markers. It remains the route for when a real per-SNP
+genotype file is needed. The stray per-range VCFs sit in `results/hvcf2vcf_introg/` on hazel.
+
+## 7.5 Canonical tools found in zealhmm
+
+The user pointed to existing functions that replace the ad-hoc code:
+
+- zealhmm `R/metrics.R`: `rasterize_states(seg, grid)` projects segments onto a marker grid, and
+  `marker_dsc(called, truth, grid, truth_raster)` gives per-class precision / recall / DSC, a `donor(>0)` row
+  and `macro_dsc`.
+- zealtiger `R/01_compile_map.R` `thin_markers` builds a 0.1 cM grid (about 1,190 markers on chr10 via the
+  TeoNAM v5 map).
+- zealhmm `scripts/zeal_export_release.R` writes a 0/1/2 matrix to TSV, VCF and PLINK.
+
+The user decided that **for now only the painting is needed**. Visualization uses the RLE'd PHG. Rasterization
+with `rasterize_states` and the 0.1 cM grid, the 012 matrices and the VCFs are parked for genetic mapping.
+Marker-level DSC / MCC across callers has not been run.
+
+Sources: headers of PHG/analysis/paint_callers_introg.R and PHG/analysis/paint_markers_introg.R; git log 09-22
+(25da9b5, b4662db, 64470f1, daac32b, 3dcbef7); 09-22 session transcript (jobs 921906, 922053, 922107, 922158,
+922250, 922405); memory phg-stay-f-grid-insensitive.
+
+# 8. Earlier founder comparison (context for the v4 choice)
+
+![RTIGER poolseq (tier-A sites, rigidity 500) with PHG on the A+B founder (v4) and on the tier-A founder (v5), all 39 Zd.0040_P1 lines; both PHG lanes at stay 0.9991, F 0.86, min-reads 1.](../../agent/pilot_1B_chr10_results_v9/Zd0040_RTIGERpoolseq_PHGA_PHGB.png)
+
+Compared with poolseq RTIGER, founder v4 (A+B, 103,809 alleles) agreed 89.6% on introgressed lines and 100.0%
+on clean lines. Founder v5 (tier A, 48,791) agreed 88.2% and 99.8%. With v5, fixed and ALT lines improved
+(Zd00401111 59.5 → 79.1) and segregating HET-block families got worse (Zd00401542 71.2 → 58.2, Zd00401431
+83.7 → 59.5). The decision on 09-21 01:50 was that RTIGER poolseq uses tier-A sites and **PHG keeps the A+B
+founder (v4)**. This figure predates F = 0.
+
+Sources: agent/pilot_1B_chr10_runlog_20260917.md (09-21 00:44, 01:44, decision 01:50); header of
+PHG/analysis/paint_rtiger_phgA_phgB.R.
+
+# 9. Known PHG defects stated in the sources
+
+| defect | evidence | cause as stated | status |
+|---|---|---|---|
+| **Dosage under-call (ALT → HET)** | 09-18 pilot: RTIGER ALT mostly HET in PHG (PN7_SID592/612/615/618, SID590) | first, intergenic ranges without an H_d haplotype. Then (09-18 night) about one third of founder alleles are false, since a tier-B allele supported by 1–2 samples is wrong about half the time. PROJECT_STATE: "dosage under-call in low-read ranges" is the known cost of lowcopy ranges | the strict founder (> 1 pool) improved it (SID615 Hd/Hd share 0.04 → 0.73, 09-19). The 09-22 grid still has ALT recall of about 0.5 |
+| **Fragmentation** | range-to-range B73/HET switching inside RTIGER blocks at about 0.4x | first read as a weak stay prior. The 09-22 bulk simulation and F sweep located it in F = 0.86 on segregating 6-plant pools | F = 0 with stay 0.99999 |
+| False-teosinte floor | sim: 1.0% of truth-B73 range calls are teosinte; 80 ranges carry 86% | founder alleles whose k-mers occur elsewhere on the chromosome | mask candidates (B73-only misfire list), not applied |
+| Structural no-call | 22% of ranges (§6) | ranges without a founder allele | the founder is the lever |
+
+Sources: agent/pilot_1B_chr10_runlog_20260917.md (final step 9 reading, 09-18 night, 09-19 00:14, 09-20
+21:00); docs/PROJECT_STATE.md; memory pilot-1b-chr10-phg-route; 09-22 session transcript.
+
+# 10. What was superseded
+
+- **Per-taxon founders**, and the 3-founder graph with the taxon standing in → two-founder B73 + H_d (09-18).
+- **Gene-only ranges** (memory note of 09-18) → lowcopy / union ranges, 8,095 on chr10 (09-20, kept on 09-21).
+- **F = 0.86** with stay 0.9999 / 0.99 / 0.9991 → **F = 0, stay 0.99999** (09-22). This held after the grid,
+  whose argmax (0.99 / 0.2) differs only marginally.
+- **Excluding the B73 control from the score** → included (09-22, user).
+- **PHG lane with gaps** → RLE-bridged, then gap-free fill (09-22).
+- **Native `hvcf2vcf` export for the comparison** → RLE back-projection, equivalent for ancestry (09-22).
+- **Ad-hoc scorer and projection** → zealhmm `rasterize_states` / `marker_dsc` identified as canonical, not
+  yet applied.
+
+Sources: all of the above.

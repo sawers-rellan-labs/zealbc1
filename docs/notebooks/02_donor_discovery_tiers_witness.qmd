@@ -1,0 +1,266 @@
+---
+title: "Donor Discovery on chr10"
+subtitle: "Per-donor variant discovery from the BC1 samples: CRISP, step-4 tiers, B73 controls, BC2S3 witness, founders v1–v5 (2026-09-17 → 09-23)"
+author: "Fausto Rodríguez-Zapata"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    embed-resources: true
+execute:
+  echo: false
+---
+
+**What this is.** This workbook summarizes past work on finding each donor's teosinte alleles (H_d) on chr10 from the pooled BC1 samples of
+pool 1B, from the first joint CRISP run on 2026-09-17 to the discovery procedure recorded in `docs/DECISIONS.md` on 2026-09-23. It covers the
+CRISP settings, our step-4 post-filter, the B73 controls, the reference-range set, joint versus per-donor discovery, the BC2S3 artificial pool
+used as the required witness, and founder versions v1 to v5. It does not cover the PHG imputation and painting details; they appear here only
+as agreement numbers. Every number comes from the files named in each section's "Sources" line.
+
+::: {.callout-note}
+## Outcome (what holds on 2026-09-23)
+
+- **Discovery is per donor.** CRISP runs on **the donor's BC1 samples + its BC2S3 artificial pool only**, on the lowcopy BED, with
+  `-p 12 --sm 0 --mmq 20 --filterreads 0 --minc 2`. The **witness veto** then keeps records with ≥ 1 ALT read in the BC2S3 pool. The
+  **two B73 pools** (NCBI ERR3288215 and the B73 check pool skim10) are counted at the kept sites with `bcftools mpileup` and enter at
+  **step 4** as the zero class. The script is **`PHG/bin/donor_discovery_chr10.sbatch`** (`docs/DECISIONS.md`, 2026-09-23, correcting
+  the row entered earlier that day).
+- **Step 4** (`PHG/bin/pilot_step4_postfilter_llr.py`) computes a pooled LLR on the 1/12 lattice and assigns tiers A / B / C / ref.
+  Founder alleles need ALT reads in more than one of the donor's BC1 samples (decided 2026-09-19).
+- **Reference ranges = lowcopy** (gene ± 500 bp ∪ non-TE intergenic): 8,095 ranges and 26.0 Mb on chr10. Fixed 1 Mb and 250 kb bins were
+  rejected on 2026-09-21 because they gave a false HET background outside introgressions.
+- **Founders per donor:** tier A (v5 on Zd.0040_P1: 48,791 alleles) and A+B (v4: 103,809 alleles). The RTIGER poolseq lane uses the
+  **tier-A sites** with rigidity 500 (decided 2026-09-21), and PHG B uses the A+B founder.
+- The B73 controls had **no measurable effect** on allele quality or imputation. What they add is a veto list of about 1,500 sites and about
+  5% more alleles.
+:::
+
+## 1. Starting point: joint CRISP on the 12 pool-1B samples (09-17)
+
+Each BC1 sample is one library made from 6 pooled BC1 plants. That gives 12 haplotype copies per locus, a teosinte allele fraction of j/12
+(mean 0.25, never > 0.5), and a poolseq model with CRISP `-p 12`. Diploid genotype callers were dropped for BC1, so only allele counts are
+taken from BC1 reads. Pool 1B holds 12 samples from 6 donors: Zx.0100_P4 (S_1B_1, 2), Zx.0150_P2 (3, 5), Zx.0130_P1 (4), Zd.0040_P1
+(6, 8, 10), Zl.0010_P1 (7, 9, 11) and Zd.0010_P3 (12). The CRAMs were made with minibwa `-x sr` and MAPQ ≥ 20, and reach 14–18x over gene
+space.
+
+The first discovery ran all 12 pools together on the chr10 gene BED (2,239 intervals, 15.3 Mb) with `-p 12 --filterreads 0 --minc 2`
+(job 870569). It took 30:41 wall time and 411 MB, and produced **412,488 records / 351,437 biallelic SNPs**. That result was identical to
+the `--minc 4` run. CRISP's quality-test threshold (QV p-value −5.0) already needs about 3 alt reads at Q30, so `--minc` below 3 does not
+bind. The setting that controls 2-read sites is `--qvpval` (≈ −3.5), which was not run (user decision). Other CRISP facts found here:
+`LowDepth` is a label and does not discard records (93–99% of records carry it at 14–18x), and CRISP exits 1 on success.
+
+A resource test with 384 columns (12 CRAMs × 32, chr10:20–30 Mb gene space) took 1 h 36 min wall time, 4.08 GB peak RSS and 1 core. That
+is about 1.6 CPU-h per 10 Mb of gene space.
+
+Sources: `agent/pilot_1B_chr10_runlog_20260917.md` (Inputs; Step 2 --minc 2; 384-column test); `agent/handover_20260918_195309.md` §1;
+`docs/DECISIONS.md` (2026-09-1x row).
+
+## 2. Step 4: our post-filter on CRISP output
+
+Step 4 is our own post-processing, not part of the CRISP protocol (the user stressed this on 2026-09-21). The same applies to the tiers,
+the LLR, the zero class and the witness veto. The script is `PHG/bin/pilot_step4_postfilter_llr.py`. For each biallelic SNP record and each
+pool it takes the depth n_i (ref + alt reads, ADf+ADr+ADb) and the alt count a_i.
+
+- **Likelihood on the 1/12 lattice.** Under H1, the number of carriers among the 6 plants is j_i ~ Binom(6, 1/2). The allele fraction is
+  f_j = j/12 and p_j = f_j(1−eps) + (1−f_j)eps, so L1_i = Σ_j w_j Binom(a_i | n_i, p_j). Under H0, L0_i = Binom(a_i | n_i, eps).
+  LLR_d is the sum over the donor's pools of log L1_i − log L0_i.
+- **eps_site from a zero class.** The error rate at a site comes from pools of donors that are confidently non-carriers (LLR < −3 at
+  eps0) when those pools hold ≥ 20 reads. Otherwise eps0 = 0.005 is used and the site is flagged `no_zero_class`. With `--extra-counts`,
+  pools counted outside CRISP (the B73 controls, via `mpileup_ad_counts.py`) are added as pools for each record.
+- **Flags:** `hidepth` (summed depth > 2× median), `af_gt_half` (donor alt fraction > 0.5, binomial p < 0.01), `inconsistent` (one pool
+  has a ≥ 3 while another pool has n ≥ 10 and a = 0), `single_sample`.
+- **Tiers:** **A** = LLR ≥ 6.9, ≥ 2 pools with alt and no flags. **B** = LLR ≥ 4.6 and no hidepth/af flags. **C** = LLR ≥ 2.2.
+  **ref** = LLR ≤ −4 and n ≥ 12.
+
+On the joint set (job 870612, minc-4 set, which is identical to minc 2), the tiers separated cleanly against the taxon assemblies. Tier A
+matched the assembly at 49–60% and tier B at about 30%:
+
+| donor | samples | tier A | A in assembly | tier B | B in assembly | tier C | confident REF |
+|---|---|---|---|---|---|---|---|
+| Zd.0040_P1 (Gigi) | 3 | 30,892 | 59.5% | 97,442 | 30.5% | 14,336 | 181,201 |
+| Zx.0100_P4 (TIL18) | 2 | 58,643 | 51.5% | 48,250 | 29.6% | 10,570 | 196,835 |
+| Zx.0150_P2 (TIL18) | 2 | 62,288 | 48.6% | 42,809 | 30.2% | 8,694 | 186,550 |
+| Zl.0010_P1 (no assembly) | 3 | 117,609 | – | 37,076 | – | 6,806 | 161,511 |
+| Zx.0130_P1 | 1 | 0 | – | 61,900 | 43% | 11,399 | 515 |
+| Zd.0010_P3 | 1 | 0 | – | 72,449 | 54% | 13,026 | 781 |
+
+Tier A requires alt reads in ≥ 2 pools, so donors with a single sample get no tier-A sites.
+
+**The > 1-pool rule (09-19).** A per-site allele test used pileups of three ALT-rich Zd.0040_P1 lines, the B73 check and the B73 skim pool.
+It measured the REF fraction inside RTIGER ALT blocks: 0.15 for tier A and 0.49 for tier B. By the number of pools carrying the alt allele
+it was 0.13 for 3 pools, 0.44 for 2 pools and 0.49 for 1 pool. Roughly one third of the 128,302 A+B founder alleles were positions where
+the lines carry the B73 base. Most of these were tier-B alleles supported by only 1–2 of the 3 samples. The decision taken was that a
+founder allele needs alt reads in more than one of the donor's BC1 samples.
+
+One finer split was recorded as data but not adopted as a rule: 2-pool alleles whose silent pool had ≥ 10 reads were contradicted at 0.49,
+versus 0.19–0.21 when the silent pool had < 10 reads.
+
+Sources: `PHG/bin/pilot_step4_postfilter_llr.py` (docstring); `agent/pilot_1B_chr10_runlog_20260917.md` (Step 4 debug; 09-18 late per-site
+test; 09-21 00:44 note); `agent/handover_20260919_021836.md`; `agent/handover_20260920_221920.md` (Open); `docs/DECISIONS.md` (2026-09-19).
+
+## 3. Reference ranges: gene ± 500 → lowcopy; fixed bins rejected
+
+- **Gene ranges (09-17/18).** Discovery and founder reference blocks first covered only gene space. The first 3-founder graph (B73 +
+  taxon + donor) gave the donor a haplotype in 2,517 of 4,685 chr10 ranges. The intergenic ranges only offered B73 or the taxon founder,
+  which caused the dosage under-call (ALT → HET) and fragmentation. On 09-18 the graph was restricted to gene ranges (2,489) with two
+  founders (B73 + H_d) and the taxon founder dropped.
+- **Non-repeat test (09-19).** CRISP was run on the TE complement (9,838 ranges, 20.7 Mb) and gave 705,973 SNP records. Contradiction
+  fractions for Zd.0040_P1 strict alleles were: genic low-copy 56,665 alleles at 0.33, intergenic low-copy 92,251 at 0.37, and the genic
+  TE part 17,864 at 0.41. Masking TE out of genic space therefore buys no precision, while the intergenic low-copy space adds alleles of
+  about the same quality.
+- **Lowcopy (09-20).** Gene ± 500 bp ∪ low-copy intergenic (the TE complement of the MaizeGDB TE GFF), merged across ≤ 200 bp gaps and
+  kept if ≥ 500 bp (`PHG/bin/make_union_bed.py`). On chr10 this gives **8,095 ranges, 26.0 Mb, median 1.4 kb**. The joint-discovery
+  founder under the > 1-pool rule grew to 166,789 alleles for Zd.0040_P1 and 140,365 for Zx.0100_P4.
+- **Fixed bins rejected (09-21).** PHG was also run with 1 Mb and 250 kb bins on Zd.0040_P1. The fixed bins put a false HET background
+  outside introgressions, so lowcopy stays as the range set. For context, reads per line × range at tier-A sites had a median of 1 on
+  lowcopy (54% zero), 49 on 250 kb bins and 233 on 1 Mb bins. The known cost of lowcopy is a dosage under-call in ranges with few reads.
+
+![Local copy: Zd.0040_P1 chr10, RTIGER vs PHG on 1 Mb bins, 250 kb bins and lowcopy ranges (stay 0.99).](../../agent/pilot_1B_chr10_results_v10/Zd0040_RTIGER_PHG1Mb_PHG250kb_PHGlowcopy_s099.png)
+
+Sources: `agent/pilot_1B_chr10_runlog_20260917.md` (Attempt 5; 09-18 evening; 09-19 01:42; 09-20 20:17); `agent/handover_20260921_025746.md`
+(Decisions 1); `docs/DECISIONS.md` (2026-09-20, 2026-09-21); `docs/PROJECT_STATE.md`; `agent/handover_20260921_155429_simulation_benchmark.md`
+(reads per bin); memory `per-donor-imputation-graph.md`.
+
+## 4. Joint versus per-donor discovery, and the B73 controls
+
+On 2026-09-18 the user decided to rerun discovery **per donor**, with each run taking only that donor's samples. The trade-off noted at
+the time was that CRISP's contingency test needs pools without the allele, and a single donor's samples all carry nearly all of H_d. The
+CRISP README also requires ≥ 2 pools, so the 1-sample donors cannot run alone. Two B73 control pools were therefore prepared:
+
+- **ERR3288215** (ENA, ~20x raw, 2×150 NextSeq, labelled WGA). It was aligned in job 886211 (3 h 21 min, 48 GB) to
+  `results/b73_control/ERR3288215/B73_ERR3288215.cram`, which reaches **15.5x** genome-wide after `-F 0x904 -q 20`.
+- **skim10**: 10 clean B73 skim checks merged (PN5_SID468 and PN3_SID236 dropped) into `results/b73_control/skim10/B73_skim10.bam`. It has
+  97.6 M reads and 5.72x genome-wide, with one RG added via `addreplacerg`.
+
+**Per-donor CRISP with the B73 pools (Zd.0040_P1, union BED, job 896958).** The pools were S_1B_6/8/10 + ERR3288215 + skim10, all `-p 12`.
+The run took 15 min and 350 MB and gave 451,807 SNP candidates. With B73 as the zero class in step 4, Zd.0040_P1 had tier A 70,139 and
+tier B 221,635, compared with 60,440 and 193,793 from joint discovery on the union set. The founder (> 1 pool) had 174,768 alleles versus
+166,789.
+
+**What the B73 pools measured:**
+
+- Alt reads at 0.17% (ERR3288215) and 0.38% (skim10) of bases.
+- 19,303 candidates with any B73 alt read. Treating B73 as a "donor" gave tiers A 143 / B 579 / C 827, which is the veto list.
+- Across 797k candidates, B73 was clean at 788,210 sites. There were 8,510 sites with a single alt read, 563 mismap-like sites and 7 fixed
+  divergent sites.
+- NIL background alt reads inside RTIGER REF blocks were 1.9% at B73-alt sites versus 1.0% elsewhere. B73 self-mismapping is therefore a
+  minor source of false alleles.
+- The per-site test of founder v3 gave 0.33 / 0.38 / 0.42 (genic low-copy / intergenic low-copy / genic TE), the same as the
+  joint-discovery founder. Imputation was also unchanged (87.2% introgressed, 99.9% clean, B73 check 0 bins).
+- Conclusion recorded at the time: the B73 zero class does not change allele quality or the painting. What it adds is a veto list of about
+  1,500 sites and about 5% more alleles.
+- 2,615 of the 174,725 founder-v3 alleles (1.5%) sit on B73-flagged sites and were not vetoed in v6/v7.
+
+![Local copy: B73 alt-read sites on chr10 (ERR3288215 + skim10).](../../agent/b73_sites/b73_alt_sites_chr10.png)
+
+Sources: `agent/handover_20260918_195309.md` §2; `agent/handover_20260919_021836.md` (Decisions 4); `agent/pilot_1B_chr10_runlog_20260917.md`
+(09-18 evening; 09-19 02:39; 09-20 22:03, 22:17, 22:28); `agent/handover_20260921_025746.md` (Results); `docs/PROJECT_STATE.md`.
+
+## 5. The BC2S3 artificial pool as required witness (09-21)
+
+The artificial pool is the 38 Zd.0040_P1 BC2S3 BAMs merged on chr10 into one read group (29.3 M reads). It entered CRISP as a sixth pool
+next to the 3 BC1 samples and 2 B73 pools, on the union BED with `-p 12` (job 898439). The run took 17.5 min and gave **425,431 records**.
+
+The **witness veto** (`PHG/bin/veto_witness.py`, formerly `filter_bc2s3pool.py` on hazel) keeps records with ≥ 1 ALT read in the witness
+pool (ADf+ADr+ADb alt). It kept **240,745 and dropped 184,686 (43%)**. Step 4 then ran with the B73 zero class, and the BC2S3 pool was
+mapped as its own "donor" rather than pooled into the donor likelihood. That gave 162,803 tier A/B sites, of which 103,837 had alt in > 1
+BC1 pool. The resulting **founder v4** had **103,809 alleles**.
+
+With the BC2S3 pool present, CRISP already has ≥ 2 pools, so the B73 pools are no longer needed for that purpose.
+
+Sources: `agent/pilot_1B_chr10_runlog_20260917.md` (09-21 00:44); `PHG/bin/veto_witness.py`; `agent/handover_20260920_221920.md` (item 10);
+`agent/handover_20260921_025746.md` (Decisions 2); `docs/PLAN_production_genotyping_poolseq.md` §1.2–1.4.
+
+## 6. Founder versions for Zd.0040_P1
+
+In the table, "agreement" means % of 1 Mb bins with the same dosage (0/1/2) on introgressed lines / clean lines, plus the number of
+teosinte bins in the B73 check. The reference track changes between rows: the RTIGER SNP50K mosaic up to v3, and the RTIGER poolseq lane
+from v4 on. Numbers in different rows are therefore not all on the same scale.
+
+| version | discovery / rule | ranges | alleles | PHG vs RTIGER |
+|---|---|---|---|---|
+| v1 (joint) | 12 pools jointly; tiers A+B (LLR ≥ 4.6), no pool rule | gene space | 128,302 | vs 50K: 84.8 / 99.2 / 3 bins (gene-only graph, stay 0.99) |
+| v2 (strict) | v1 set, alt in > 1 BC1 sample | gene only | 75,014 | vs 50K: 87.4 / 99.6 / 0 bins |
+| v1 on union | joint discovery + non-repeat run, > 1 sample | lowcopy | 166,789 | vs 50K: 87.3 / 99.9 / 0 bins |
+| v3 | per-donor CRISP (3 BC1 + 2 B73), B73 zero class, > 1 sample | lowcopy | 174,768 at step 4; 174,725 loaded | vs 50K: 87.2 / 99.9 / 0 (stay 0.99); 87.5 at stay 0.9991 |
+| v4 (A+B) | per-donor CRISP 6 pools (3 BC1 + 2 B73 + BC2S3), witness veto, tiers A+B, > 1 sample | lowcopy | 103,809 | vs RTIGER poolseq v4: **89.6 / 100.0 / 0** |
+| v5 (tier A) | as v4, tier A only | lowcopy | 48,791 | vs RTIGER poolseq v5: 88.2 / 99.8 / 0 |
+
+Line-level effects:
+
+- **v1 → v2:** the Hd/Hd share in Zd00401454 went from 0.04 to 0.73, and its agreement from 70.6 to 94.1.
+- **v4 vs v3:** Zd00401111 39.2 → 62.1 and Zd00401542 60.8 → 71.9, compared against the poolseq RTIGER on each version's own sites.
+- **v5 vs v4:**
+  - Fixed families went up: Zd00401111 59.5 → 79.1, Zd00401114 90.2 → 96.7, Zd00401454 98.0 → 99.3.
+  - Segregating HET-block families went down: Zd00401542 71.2 → 58.2, Zd00401431 83.7 → 59.5.
+- Zx.0100_P4 had only the joint-discovery founder (140,365 alleles on the union ranges), at 66.6% agreement (68.4% at stay 0.9991).
+
+Sources: `agent/pilot_1B_chr10_runlog_20260917.md` (09-19 00:14; 09-20 20:17, 22:03, 22:17, 22:28; 09-21 00:44, 01:44);
+`agent/handover_20260919_021836.md` (Results); `agent/handover_20260921_025746.md`.
+
+## 7. Tier A sites for the RTIGER poolseq lane (decision 09-21)
+
+RTIGER (nilhmm `rtiger`, design BC2S3) was first run on the 174,725 founder-v3 sites. With the default rrate of 0.01 it gave 325 segments
+per line. Rigidity 250 (RTIGER's r = 5 on the 50K set × the 47× marker density) gave 10 segments per line, and rigidity 500 gave 3.
+
+The user decided on 09-20 to exclude sites with zero ALT reads across the donor's BC2S3 lines, which is the rule the 50K data use. It
+removed 44% of the sites (76,864 of 174,725). The user corrected an earlier reading that this made things "worse": that referred only to
+agreement with PHG. The filter in fact reduces fragmentation (median 3 → 2 segments per line) and shifts HET → ALT.
+
+**DECISION (user, 2026-09-21 01:50):** the poolseq RTIGER lane uses **tier A sites**. These are sites with LLR ≥ 6.9, alt in > 1 of the
+donor's BC1 samples, no inconsistency flag, and the BC2S3 pool as witness, with zero-ALT-across-lines sites excluded. The caller is nilhmm
+`rtiger`, design BC2S3, rigidity 500. The user called this "the sweet spot for RTIGER". On Zd.0040_P1 it gives 44,757 variable tier-A sites
+and median 2 segments per line (max 14). PHG keeps the A+B founder (v4).
+
+The plan of record generalizes the rigidity as R_c = 5 × n_sites_c / n_50K_sites_c, which is 500 on chr10 for ~45k sites versus 3,695.
+
+![Local copy: Zd.0040_P1 chr10 lanes RTIGER poolseq / PHG A / PHG B.](../../agent/pilot_1B_chr10_results_v9/Zd0040_RTIGERpoolseq_PHGA_PHGB.png)
+
+Sources: `agent/pilot_1B_chr10_runlog_20260917.md` (09-20 22:47, 22:53, 23:29, 23:35 correction, 23:45 decision; 09-21 01:44, 01:50
+decision); `agent/handover_20260921_025746.md` (Decisions 4); `docs/PLAN_production_genotyping_poolseq.md` §1.8.
+
+## 8. Discovery procedure of record (2026-09-23) and the scripts
+
+`docs/DECISIONS.md` has two rows dated 2026-09-23. The first put the 2 B73 control pools inside CRISP, together with the donor's BC1
+samples and the BC2S3 pool. The second row **corrects** it and is the one that holds. **CRISP = the donor's BC1 samples + its BC2S3 pool
+only.** The B73 comparison happens in step 4 (zero class), using ERR3288215 and skim10 counted at the vetoed sites. The pilot uses the
+current check pool, and the publication-ready pipeline must build the check pool itself.
+
+**`PHG/bin/donor_discovery_chr10.sbatch`** implements this (commit 3d0f6c5) in five steps:
+
+1. Build the BC2S3 artificial pool: all the donor's lines on chr10 (B73 checks excluded), merged, one RG.
+2. Run CRISP on the BC1 samples + the BC2S3 pool, on the lowcopy BED, with `-p 12 --sm 0 --mmq 20 --filterreads 0 --minc 2`.
+3. Apply the witness veto (`veto_witness.py`).
+4. Count the two B73 pools at the kept sites with `bcftools mpileup -q 20 -Q 20 -a AD` → `mpileup_ad_counts.py`.
+5. Run step 4 with the B73 counts passed via `--extra-counts`; the BC2S3 pool is its own "donor".
+
+The script runs as a short-QOS job (2 h, 8 CPU, 48 GB).
+
+**`PHG/bin/discovery_perdonor.sbatch`** is the earlier parameterization of the same v4 steps. It uses the MAPQ20-realigned BC2S3 CRAMs as
+the witness, and its header puts **the 2 B73 pools inside CRISP** ("zero class for eps_site in step 4"). Its Zx.0100_P4 run (job 932554)
+therefore predates the 2026-09-23 decision and does not follow it. That run gave 345,952 records. The veto kept 79,119 (23%), and step 4
+gave tier A 40,434 / B 17,253 / C 6,391 / ref 1,399 (numbers as given in the request for this workbook; the job log is not among the local
+sources).
+
+**Almost no REF calls in the step-4 table.** The witness veto runs before step 4 and keeps only records with an ALT read in the donor's
+own BC2S3 lines. Those are sites where the donor's material shows the allele, so few of them can reach ref (LLR ≤ −4, n ≥ 12) for the
+donor. The job-932554 table has 1,399 ref, whereas the joint run without a veto had 181,201 confident REF for Zd.0040_P1 and 196,835 for
+Zx.0100_P4. Those REF sites came from other donors' variants.
+
+Sources: `docs/DECISIONS.md` (both 2026-09-23 discovery rows); `PHG/bin/donor_discovery_chr10.sbatch` (header); `PHG/bin/discovery_perdonor.sbatch`
+(header); `PHG/bin/README.md`; memory `no-production-label.md`; `agent/pilot_1B_chr10_runlog_20260917.md` (Step 4 debug table).
+
+## 9. Superseded statements
+
+| earlier statement | where | superseded by |
+|---|---|---|
+| B73 control pools in per-donor CRISP (ERR3288215 as pool of 12, skim10 as pool of 4) | handover 09-19 Decisions 4; runlog 09-20 22:03, v4 CRISP 09-21 | 09-21: not needed for discovery (plan §1.2) → 09-23 row 1 put them back in CRISP → **09-23 correction: B73 counted at vetoed sites, enters at step 4** |
+| "B73 controls NOT in CRISP, keep them only as QC controls" | `docs/PLAN_production_genotyping_poolseq.md` §1.2 | same end state for CRISP; B73 now has a defined role as the step-4 zero class (09-23) |
+| Gene-only reference ranges, two-founder graph | memory `per-donor-imputation-graph.md`; handover 09-19 | two founders kept; ranges = lowcopy (09-20), bins rejected (09-21) |
+| `find-paths --prob-same-gamete 0.9999` (09-18), then 0.99 | handover 09-18 §2; handover 09-19 | 0.9991 on chr10 lowcopy, from λ = 4.72/Morgan (09-21) |
+| Zero-ALT-sites filter makes the RTIGER track "worse" | runlog 09-20 23:29 | user correction 23:35: it reduces fragmentation; "worse" was agreement with PHG only |
+| Founder = tier A ∪ alleles in all samples + `--prob-correct` ~0.85 (proposal) | runlog 09-18 late | not adopted; > 1-sample rule (09-19), tiers A / A+B (09-21) |
+| Tier A = "no flags" (docstring) vs "no inconsistency flag" (plan §1.4, 09-21 decision) | `pilot_step4_postfilter_llr.py`; plan | reported as stated in each; the script's rule is the one that runs |
+
+Sources: all files named above; `docs/DECISIONS.md` is taken as authoritative where rows differ.
