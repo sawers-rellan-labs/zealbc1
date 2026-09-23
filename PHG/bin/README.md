@@ -18,3 +18,4 @@ Paint/simulation helpers: `../analysis/`. Run recipes (sbatch bodies) are in the
 | `union_sites.py` + `.sbatch` | union pilot step 1 | union of tier-A sites over donors; per donor shared / private / other-only, and the positions that need the second counting pass |
 | `second_pass_counts.sbatch` + `counts_to_crisp_vcf.py` | union pilot step 2 | count the union sites missing from a donor's table (BC1 + BC2S3 pool + B73 pools), classify with the unchanged step 4, no veto |
 | `dhd_union.py` + `.sbatch` | union pilot step 3 | donor allele at every biallelic union site: ALT = tier A, REF = tier ref, else missing (own table first, then second pass) |
+| `count_union_sample.sbatch` → `count_once_step4.sbatch` + `dhd_joint.py` | union pilot, count once | per-sample counts at the union sites (BC1 samples + 2 B73 pools, array) → one joint step 4 (no veto) → donor allele table, rules A and A+B |
