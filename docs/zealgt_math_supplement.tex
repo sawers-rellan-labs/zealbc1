@@ -87,8 +87,8 @@ j_i\sim\Bin(6,\tfrac12),\qquad f_i=\frac{j_i}{12}\in\{0,\tfrac1{12},\dots,\tfrac
 with $E[f_i]=\tfrac14$, $\mathrm{SD}[f_i]=\sqrt{6\cdot\tfrac14}/12=0.102$, and $f_i\le\tfrac12$ always. Treating the twelve copies as
 independent haplotypes, each ALT with probability $\tfrac14$ ($\Bin(12,\tfrac14)$), would keep the mean but inflate the variance
 ($12\cdot\tfrac14\cdot\tfrac34=2.25$ vs.\ $1.5$ haplotypes) and allow $f>\tfrac12$, which the cross cannot produce. The plant level is what
-matters here, because the two gametes of a plant have different sources. This is the model of \code{build\_hd.py} (bzea-bc1-reference) and
-of our step~4 (Text~\ref{sec:discovery}).
+matters here, because the two gametes of a plant have different sources. This is the model of step~4 of discovery
+(Text~\ref{sec:discovery}).
 
 \paragraph{Presence.} A segment of $\Hd$ is absent from all $6k$ F$_1$ gametes of a donor's $k$ samples with probability $2^{-6k}$, so it is
 present in the pooled DNA with probability $1-2^{-6k}$ ($98.4\%$ for one sample, $>99.99\%$ for three). Completeness of $\Hd$ is limited by
