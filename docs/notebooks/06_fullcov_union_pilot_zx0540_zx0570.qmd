@@ -68,7 +68,8 @@ of depth; line realign ~10 min per line (array). A full donor prep is about 4 h.
 | 6 | PHG | pairwise graph (B73 + the donor's founder), the donor's lines only; find-paths diploid, F = 0, stay 0.99999, min-reads 1 | `PHG/bin/union_founder_phg.sbatch` |
 | 7 | RTIGER | per-line pileup at the donor's own tier-A sites, sites with no ALT read across lines dropped, rigidity 500; no design prior (§3.3) | `PHG/bin/rtiger_ancestry_inference.sbatch` |
 | 8 | bbnil | same per-line counts as RTIGER; design BC2S2; rrate = 4.72 × L_chr10 / n_markers, L_chr10 = 1.359 M (nilHMM TeoNAM v5 map) → 0.000127 (Zx.0570_P2, 50,308 markers), 0.000168 (Zx.0540_P3, 38,287) | `PHG/bin/bbnil_lines.R` |
-| 9 | Painting | per line: RTIGER, bbnil BC2S2, PHG; label = NIL id + skim coverage (`WGSmetrics_summary.tsv`, old batch-1 BAMs) | `PHG/analysis/paint_rtiger_phg.R` |
+| 9 | B73 check | PN10_SID893 (batch-1 B73 control, 0.57x, realigned): RTIGER decoded with the lines' fit, bbnil with the lines' rrate, PHG on the same founder — the lines' results unchanged | `PHG/bin/rtiger_bbnil_check.R`, `union_founder_phg.sbatch` |
+| 10 | Painting | per line: RTIGER, bbnil BC2S2, PHG; B73 check pinned on top; label = NIL id + skim coverage (`WGSmetrics_summary.tsv`, old batch-1 BAMs) | `PHG/analysis/paint_rtiger_phg.R` |
 
 Results on hazel: `ZEAL/results/bench_zx0540_chr10/`, `bench_zx0570_chr10/` (prep + discovery) and `union_zx0540_zx0570_chr10/`
 (union, count once, founders, PHG, RTIGER, paintings). Runs before the CRISP fix are kept in `discovery/<donor>_preBEDfix/` and
@@ -133,11 +134,21 @@ splits equally between the homozygotes. The TEO allele fraction is 12.5 % in bot
 RTIGER and bbnil shares are of chr10 bp (bbnil segments cover 98.8–98.9 % of chr10 × lines); PHG shares are of called ranges. RTIGER has
 no generation prior (§3.3); bbnil uses the BC2S2 prior.
 
-### 2.5 Paintings
+### 2.5 B73 check
 
-![Zx.0570_P2, chr10, 44 lines: RTIGER / bbnil BC2S2 / PHG; label = NIL id + skim coverage (local copy).](../../agent/paintings/Zx.0570_P2_chr10_RTIGER_bbnil_PHG.png)
+| B73 check PN10_SID893 (0.57x) | Zx.0570_P2 graph | Zx.0540_P3 graph |
+|---|---|---|
+| RTIGER | all B73 (1 segment) | all B73 (1 segment) |
+| bbnil BC2S2 | 100.0 % B73 (HET / TEO pieces < 0.05 %) | 100.0 % B73 |
+| PHG | HET in 45 of 6,881 called ranges (0.7 %); no-call 15 % | HET in 56 of 6,875 (0.8 %); no-call 15 % |
 
-![Zx.0540_P3, chr10, 40 lines (PN6_SID484 = Zx05403352, PHG only): RTIGER / bbnil BC2S2 / PHG; label = NIL id + skim coverage (local copy).](../../agent/paintings/Zx.0540_P3_chr10_RTIGER_bbnil_PHG.png)
+PHG's HET ranges on the check fall at the same positions as the recurring HET spikes in the lines that RTIGER calls all B73.
+
+### 2.6 Paintings
+
+![Zx.0570_P2, chr10, 44 lines + B73 check (top): RTIGER / bbnil BC2S2 / PHG; label = NIL id + skim coverage (local copy).](../../agent/paintings/Zx.0570_P2_chr10_RTIGER_bbnil_PHG.png)
+
+![Zx.0540_P3, chr10, 40 lines + B73 check (top; PN6_SID484 = Zx05403352, PHG only): RTIGER / bbnil BC2S2 / PHG; label = NIL id + skim coverage (local copy).](../../agent/paintings/Zx.0540_P3_chr10_RTIGER_bbnil_PHG.png)
 
 What the paintings show:
 
@@ -147,7 +158,7 @@ What the paintings show:
 - Inside RTIGER's TEO segments (e.g. Zx05702132, Zx05702411, Zx05403561) PHG alternates TEO, HET and B73; inside RTIGER's HET segments
   (e.g. Zx05702242, Zx05702131) PHG alternates HET and B73.
 - In lines RTIGER calls all B73, PHG shows short HET (occasionally TEO) spikes at the same positions across many lines — specific ranges,
-  not lines.
+  not lines. The B73 check shows the same spikes (§2.5).
 - PHG counts a line as carrying TEO when a single range is called; RTIGER merges short calls at rigidity 500. That is why PHG reports TEO
   calls in almost every line and RTIGER in about half.
 
