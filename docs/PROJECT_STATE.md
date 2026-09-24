@@ -40,8 +40,7 @@ A. **Production:** implement `PLAN_genotyping_poolseq` as modules (UNION_BED →
    RTIGER_POOLSEQ → PAINT → KS); ALIGN the 372 pools (~3,000 CPU-h, the largest item); chr1 benchmark; then genome.
 B. **Depth contribution (batch 2):** `PLAN_depth_contribution_Zv0490_*.md`. **Both inputs are still multiplexed:** the donor's BC1 pools
    4E/4F/4G (needed to infer H_d) and the batch-2 plate V22 rows (the 1.2x lines) must be cutadapt-demuxed and aligned before anything else
-   (only BC1 pool 1B is demuxed/aligned today). Then discovery, imputation, metrics by coverage class, down-sampling control. Also decides
-   depth for the remaining ~3,500 lines (Rubén's memo).
+   (only BC1 pool 1B is demuxed/aligned today). Then discovery, imputation, metrics by coverage class, down-sampling control.
 C. **QC-set benchmark (simulation):** `PLAN_qcset_designB_*.md` — Gigi + TIL18 chr10; breakpoint_sim ready; read_mixing to write.
 
 ## Route to handle the project better
