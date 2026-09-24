@@ -27,7 +27,9 @@ export TMPDIR=$Z/work/tmp_${SLURM_JOB_ID}; mkdir -p "$TMPDIR" "$OUT"; trap 'rm -
 t0=$SECONDS
 
 echo "== [1] artificial pool: $(wc -l < "$LINES_LIST") $DONOR line CRAMs, chr10, one RG  $(date)"
-while read -r f; do [ -s "$f" ] || { echo "missing $f" >&2; exit 1; }; done < "$LINES_LIST"
+# WAIT_MIN>0 (submitted with --dependency on an upstream ALIGN): wait for publishDir to copy the CRAMs + indexes
+for i in $(seq 0 "${WAIT_MIN:-0}"); do miss=$(cat "$BC1_LIST" "$LINES_LIST" | while read -r f; do [ -s "$f.crai" ] || echo "$f"; done); [ -z "$miss" ] && break; sleep 60; done
+[ -z "$miss" ] || { echo "missing after ${WAIT_MIN:-0} min: $miss" >&2; exit 1; }
 samtools merge -@ 8 --reference "$REF" -R chr10 -o "$TMPDIR/merged.bam" -b "$LINES_LIST"
 samtools addreplacerg -@ 8 -r "ID:$WIT" -r "SM:$WIT" -r "PL:ILLUMINA" -m overwrite_all -o "$WIT.bam" "$TMPDIR/merged.bam"; rm -f "$TMPDIR/merged.bam"
 samtools index -@ 8 "$WIT.bam"; samtools flagstat -@ 8 "$WIT.bam" | head -1
