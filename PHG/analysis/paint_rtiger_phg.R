@@ -5,7 +5,7 @@
 # Usage: paint_rtiger_priors_phg.R <rtiger.csv> <phg_parents_dir> <phg_hvcf_dir> <founder_name> <nil_labels.tsv> <out.png> <title>
 suppressPackageStartupMessages({ library(nilHMM); library(data.table); library(ggplot2) })
 .bin <- dirname(sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE)[1])); source(file.path(.bin, "..", "qcset", "qcset_io.R"))
-a <- commandArgs(TRUE); R3 <- a[1]; PPAR <- a[2]; PHV <- a[3]; FN <- a[4]; LAB <- a[5]; out <- a[6]; TTL <- a[7]; BB <- if (length(a) >= 8) a[8] else NA; CHRLEN <- 152435371L
+a <- commandArgs(TRUE); R3 <- a[1]; PPAR <- a[2]; PHV <- a[3]; FN <- a[4]; LAB <- a[5]; out <- a[6]; TTL <- a[7]; BB <- if (length(a) >= 8 && a[8] != "NA") a[8] else NA; COV <- if (length(a) >= 9) a[9] else NA; CHRLEN <- 152435371L
 rt <- function(f, m) { x <- fread(f); setnames(x, tolower(names(x))); x[chr == 10, .(name, chr = 10L, start_bp, end_bp, state, method = m)] }
 r3 <- rt(R3, "RTIGER")
 bb <- if (!is.na(BB)) { x <- fread(BB); lab <- sub("^bbnil_", "bbnil ", x$source[1]); x[chr == 10, .(name, chr = 10L, start_bp, end_bp, state, method = lab)] } else NULL
@@ -22,7 +22,9 @@ phg <- rbindlist(lapply(lines, function(s) {
   x[, .(start_bp = min(start), end_bp = max(end), state = state[1]), by = run][, .(name = s, chr = 10L, start_bp, end_bp, state, method = "PHG")] }))
 d <- rbind(r3, bb, phg)
 teo <- r3[, .(f = sum((end_bp - start_bp) * (state / 2)) / CHRLEN), by = name]
-lb <- fread(LAB, header = FALSE, select = 1:2, col.names = c("sample", "nil")); m <- setNames(lb$nil, lb$sample)   # label = NIL id only
+lb <- fread(LAB, header = FALSE, select = 1:2, col.names = c("sample", "nil")); m <- setNames(lb$nil, lb$sample)   # label = NIL id
+if (!is.na(COV)) { cv <- fread(COV, select = c("SAMPLE", "MEAN_COVERAGE")); cx <- setNames(cv$MEAN_COVERAGE, cv$SAMPLE)
+  m <- setNames(ifelse(names(m) %in% names(cx), sprintf("%s  %.2fx", m, cx[names(m)]), m), names(m)) }   # + skim coverage
 rel <- function(v) ifelse(v %in% names(m), m[v], v)
 ordn <- rel(c(teo[order(-f, name)]$name, setdiff(lines, teo$name))); d[, name := factor(rel(name), levels = ordn)]
 lanes <- c("RTIGER", if (!is.null(bb)) unique(bb$method), "PHG"); d[, method := factor(method, levels = lanes)]
