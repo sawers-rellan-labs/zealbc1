@@ -1,12 +1,12 @@
 #!/bin/bash
 # Marker union pilot steps 4-5 for ONE donor (docs/PLAN_marker_union_pilot.md): union founder -> pairwise PHG (B73 + that donor's founder)
 # -> impute that donor's BC2S3 lines. Settings fixed by the plan: find-paths diploid, F = 0, prob-same-gamete 0.99999, min-reads 1.
-#   [1] covered stretches: summed depth >= 8 over the donor's BC1 CRAMs on the lowcopy BED (covered_blocks.sh)
-#   [2] founder gVCF from the gap-filling table (union_founder_gvcf.py: state 1 alt, 0 reference, NA no record) + pseudo-assembly
-#   [3] line reads: chr10 pairs from each line CRAM (collate first: map-kmers pairs R1/R2 by order)
-#   [4] PHG DB (B73 + founder, lowcopy ranges) -> export B73,<founder> -> kmer index -> map-kmers -> find-paths -> parents summary
-# Env: DONOR  DHD (dhd_bayes_chr10.tsv.gz)  BC1_LIST  LINES_LIST (files of CRAM paths)  OUT  [BED] [STAY=0.99999] [FCOEF=0]
-#   DONOR=... DHD=... BC1_LIST=... LINES_LIST=... OUT=... sbatch --parsable --export=ALL $Z/code/PHG/bin/union_founder_phg.sbatch
+#   [1] founder gVCF from the gap-filling table, records only at the union sites (union_founder_gvcf.py: state 1 alt, 0 reference,
+#       NA no record) + pseudo-assembly
+#   [2] line reads: chr10 pairs from each line CRAM (collate first: map-kmers pairs R1/R2 by order)
+#   [3] PHG DB (B73 + founder, lowcopy ranges) -> export B73,<founder> -> kmer index -> map-kmers -> find-paths -> parents summary
+# Env: DONOR  DHD (dhd_bayes_chr10.tsv.gz)  LINES_LIST (file of the donor's line CRAM paths)  OUT  [BED] [STAY=0.99999] [FCOEF=0]
+#   DONOR=... DHD=... LINES_LIST=... OUT=... sbatch --parsable --export=ALL $Z/code/PHG/bin/union_founder_phg.sbatch
 #SBATCH --job-name=union_founder_phg
 #SBATCH --account=maize_cpu
 #SBATCH --partition=compute_partners
@@ -17,27 +17,23 @@
 #SBATCH --output=/rsstu/users/r/rrellan/BZea/ZEAL/results/log/union_founder_phg_%j.out
 set -euo pipefail
 Z=${Z:-/rsstu/users/r/rrellan/BZea/ZEAL}; C=$Z/code; PHG=$Z/envs/phgv2/phg/bin/phg
-: "${DONOR:?}" "${DHD:?}" "${BC1_LIST:?}" "${LINES_LIST:?}" "${OUT:?}"
+: "${DONOR:?}" "${DHD:?}" "${LINES_LIST:?}" "${OUT:?}"
 BED=${BED:-$Z/results/pilot_1B_chr10/union/union_chr10.bed}; REF=$Z/reference/B73.fa; REF10=$Z/results/phg_pilot/chr10/B73_chr10.fa
 STAY=${STAY:-0.99999}; FCOEF=${FCOEF:-0}; FN=${DONOR}_union; DB=$OUT/vcf_dbs; G=$OUT/graph
 export TMPDIR=$Z/work/tmp_${SLURM_JOB_ID}; mkdir -p "$TMPDIR" "$OUT/gvcf" "$OUT/asm/raw" "$OUT/asm/prepared" "$OUT/reads"; trap 'rm -rf "$TMPDIR"' EXIT
 source "$(conda info --base)/etc/profile.d/conda.sh"; conda activate "${CONDA_ENV:-/share/maize/frodrig4/conda/env/assembly}"
 cd "$OUT"; t0=$SECONDS
-while read -r f; do [ -s "$f" ] && [ -s "$f.crai" ] || { echo "missing $f" >&2; exit 1; }; done < <(cat "$BC1_LIST" "$LINES_LIST")
+while read -r f; do [ -s "$f" ] && [ -s "$f.crai" ] || { echo "missing $f" >&2; exit 1; }; done < "$LINES_LIST"
 
-echo "== [1] covered stretches over $(wc -l < "$BC1_LIST") BC1 CRAMs  $(date)"
-awk '$1 == "chr10"' "$BED" > "$TMPDIR/bed10.bed"
-SAM=samtools bash "$C/PHG/bin/covered_blocks.sh" "$DONOR" "$TMPDIR/bed10.bed" covered.bed $(cat "$BC1_LIST")
-
-echo "== [2] union founder $FN  $(date)"
-python3 "$C/PHG/bin/union_founder_gvcf.py" --dhd "$DHD" --donor "$DONOR" --name "$FN" --covered-bed covered.bed --fai "$REF.fai" --out "gvcf/$FN.g.vcf"
+echo "== [1] union founder $FN (records only at the union sites)  $(date)"
+python3 "$C/PHG/bin/union_founder_gvcf.py" --dhd "$DHD" --donor "$DONOR" --name "$FN" --fai "$REF.fai" --out "gvcf/$FN.g.vcf"
 bgzip -f "gvcf/$FN.g.vcf"; bcftools index -f -c "gvcf/$FN.g.vcf.gz"; mv -f "gvcf/$FN.g.vcf.alt.tsv" "asm/raw/$FN.alt.tsv"
 awk -v d="$FN" 'BEGIN{OFS="\t"; print "##fileformat=VCFv4.2"; print "##contig=<ID=chr10,length=152435371>"; print "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">"; print "#CHROM","POS","ID","REF","ALT","QUAL","FILTER","INFO","FORMAT",d} {print $1,$2,".",$3,$4,".",".",".","GT","1"}' "asm/raw/$FN.alt.tsv" | bgzip -c > "asm/raw/$FN.alt.vcf.gz"
 tabix -f -p vcf "asm/raw/$FN.alt.vcf.gz"
 bcftools consensus -f "$REF10" -s "$FN" "asm/raw/$FN.alt.vcf.gz" 2> asm/raw/consensus.log | sed "1s/.*/>${FN}_chr10/" > "asm/raw/${FN}_raw.fa"
 echo "founder alleles: $(wc -l < asm/raw/$FN.alt.tsv) | $(tail -1 asm/raw/consensus.log)"
 
-echo "== [3] chr10 read pairs of $(wc -l < "$LINES_LIST") lines  $(date)"
+echo "== [2] chr10 read pairs of $(wc -l < "$LINES_LIST") lines  $(date)"
 printf 'sampleName\tfilename\tfilename2\n' > keyfile.tsv
 while read -r f; do s=$(basename "$f" .cram)
   if [ ! -s "reads/${s}_R1.fq.gz" ] || [ ! -s "reads/${s}_R2.fq.gz" ]; then
@@ -49,7 +45,7 @@ done < "$LINES_LIST"; echo "lines: $(($(wc -l < keyfile.tsv) - 1)) | $(( (SECOND
 
 conda activate $Z/envs/jdk21; conda config --prepend envs_dirs $Z/envs 2>/dev/null || true
 export JAVA_OPTS="-Xmx40g -Djava.io.tmpdir=$TMPDIR"
-echo "== [4] PHG DB: B73 + $FN (lowcopy ranges)  $(date)"; rm -rf "$DB" asm/prepared/*; mkdir -p "$DB"
+echo "== [3] PHG DB: B73 + $FN (lowcopy ranges)  $(date)"; rm -rf "$DB" asm/prepared/*; mkdir -p "$DB"
 $PHG initdb --db-path "$DB" 2>&1 | tail -1
 printf '%s\tB73\n%s\t%s\n' "$REF10" "$OUT/asm/raw/${FN}_raw.fa" "$FN" > asm/key.txt
 $PHG prepare-assemblies --keyfile asm/key.txt --output-dir "$OUT/asm/prepared" --threads 8 2>&1 | grep -v '^\s*at ' | tail -1
@@ -59,7 +55,7 @@ $PHG create-ref-vcf --bed "$BED" --reference-file "$REF10" --reference-name B73 
 $PHG gvcf2hvcf --bed "$BED" --reference-file "$REF10" --gvcf-dir "$OUT/gvcf" --db-path "$DB" --num-ranges-per-agc-query 500 > gvcf2hvcf.log 2>&1; echo "gvcf2hvcf exit=$?"
 $PHG load-vcf --vcf-dir "$OUT/gvcf" --db-path "$DB" --threads 8 2>&1 | grep -v '^\s*at ' | tail -1
 mkdir -p "$G/hvcf" "$G/readmap" "$G/paths" "$G/parents"; cd "$G"
-echo "== [5] export B73,$FN | index | map-kmers | find-paths diploid stay $STAY / F $FCOEF / min-reads 1  $(date)"
+echo "== [4] export B73,$FN | index | map-kmers | find-paths diploid stay $STAY / F $FCOEF / min-reads 1  $(date)"
 $PHG export-vcf --db-path "$DB" --dataset-type hvcf --sample-names "B73,$FN" -o "$G/hvcf" 2>&1 | tail -1
 for h in "$G"/hvcf/*.h.vcf; do echo "$(basename "$h") records=$(grep -vc '^#' "$h")"; done
 $PHG build-kmer-index --db-path "$DB" --hvcf-dir "$G/hvcf" 2>&1 | grep -E "numOfRanges|Exception" | tail -1
