@@ -34,8 +34,8 @@ Zd.0040_P1 has no 1.2x lines and Zx.0100_P4's 4 are not aligned, so pair A canno
 lines in both batches); pair A (no 1.2x lines) stays the development run where union / count once / gap filling / layer 1 were built and
 checked. Gap filling benchmarked on the QC set (union_bench, DECISIONS 2026-09-23). Layer 1 (RTIGER r500, own tier A) done for Zd.0040_P1,
 Zx.0100_P4, Zv.0490_P4. PHG stays pairwise: one two-founder graph (B73 + the donor) per donor, imputing only that donor's lines.
-Union + count once + gap filling still use all FOUR donors: pair A contributes evidence to the prior; the comparison run is the
-same-taxon gap filling, Zx.0100_P4 as Zx.0150_P2's mexicana partner (to set against the QC-set benchmark).
+The run for comparison with the QC-set benchmark = the two mexicana donors ONLY (Zx.0100_P4 + Zx.0150_P2): union, count once
+(their 5 BC1 samples + 2 B73 pools), gap filling with each other as the same-taxon prior. Zd.0040_P1 and Zv.0490_P4 are not in it.
 
 ## Steps (pair A first; pair B re-enters at step 1)
 | # | step | what | out |
