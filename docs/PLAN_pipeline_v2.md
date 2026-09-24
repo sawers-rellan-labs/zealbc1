@@ -27,12 +27,31 @@ of error. The known issues this plan must settle are in §4.
 |---|---|---|---|---|
 | 1 | `demux` | DEMUX (cutadapt exact inline, `-e 0 --no-indels`), DEMUX_QC | pool | per-sample FASTQ (transient), `demux_qc/<pool>.tsv` (store, one file per pool) |
 | 2 | `align` | ALIGN (minibwa -x sr) → **MARKDUP** → CRAM (MAPQ 20, `-F 0x904`, duplicates flagged or removed) → MOSDEPTH | sample (BC1 sample, BC2S3 line, B73 pool) | `cram/<sample>.cram` (store) |
+| 2b | `sample_qc` | PANEL_COUNTS (`mpileup -I` at a blind QC panel, one task per sample) → COVERAGE_QC → RELATEDNESS_QC → DONOR_CONTENT_QC | sample / cohort | `sample_qc.tsv`: pass/fail + reason per sample; discovery and every caller read it |
 | 3 | `discovery` | WITNESS_POOL → CRISP (BC1 samples + witness only) → VETO → B73_COUNTS (`mpileup -I`) → STEP4 | donor × chr | `step4/<donor>.sites.tsv.gz` |
 | 4 | `union` | UNION (tier-A sites of the donor set; multi-allelic dropped) | donor set × chr | `union/<set>_<chr>.tsv.gz` |
 | 5 | `count_once` | COUNT_SAMPLE (`mpileup -I -T union`, one task per sample) → JOINT_STEP4 → GAP_FILL (`dhd_bayes`) | sample / donor set × chr | donor allele table |
 | 6 | `layer1` | LINE_COUNTS → RTIGER (design BC2S3, rigidity 500) | donor × chr | ancestry segments per line |
 | 7 | `layer2` | FOUNDER (gVCF → pseudo-assembly) → PHG_DB → PHG_IMPUTE (pairwise: B73 + donor, that donor's lines; F = 0, stay 0.99999) → RASTERIZE | donor × chr | genotypes at the union sites |
 | 8 | `report` | PAINT, summary tables, KS / single-locus checks | donor × chr | paintings, tables |
+
+### Stage 2b — sample QC before discovery (proposal, 2026-09-24)
+Discovery assumes every BC1 sample and every line belongs to its recorded donor; a pollination error, seed mix-up or contaminated
+pool breaks that silently (a wrong BC1 sample adds false alleles; a wrong line adds reads to the witness). The check must therefore run
+before discovery and must not depend on any donor's discovered sites.
+- **Blind QC panel:** lowcopy ranges ∩ teosinte-vs-B73 variants detected by wideseq, defined without any donor assumption. Positions only
+  (panel genotypes are imputed). Caveat: distal taxa, huehuetenangensis most, are thin in the panels (1 Zh individual in Schnable 2023).
+- **Coverage QC** (as in zealhmm `scripts/zeal_paired_cohort_coverage_qc.R`): covered panel markers per sample × chromosome; ladder of
+  floors (RTIGER's 2 × rigidity, 10, 100); one table applied to every caller. λ per sample from mosdepth alongside.
+- **Relatedness QC:** lines (λ 0.05–1.6) from genotype likelihoods or one random read per site (pseudo-haploid), no hard calls; BC1
+  samples from their per-site ALT fractions (correlation of centered frequency vectors). Centered kinship (VanRaden, as in zealhmm
+  `zeal_mlm_taxon.R`); a sample is flagged when its kinship to its own donor's samples/lines falls outside the within-donor distribution,
+  or when it is closer to another donor. Expected signal: lines are ~87.5% B73, so relatedness comes from teosinte alleles; same-donor
+  lines share H_d segments.
+- **Donor-content QC:** fraction of panel sites with ALT reads vs the 12.5% expectation — catches B73 contamination (selfing, seed mix),
+  which kinship alone does not separate from a line that carries little donor genome.
+- Flagged samples are excluded from discovery and from the witness; the table records why.
+- Open: the relatedness method for mixed pool/line samples; flag thresholds; whether Zh needs its own panel (e.g. from its assembly).
 
 Donor sets for stages 4–5 are named in a run card (`docs/runs/<run>.md`: purpose, donors with BC1 count / lines / coverage, exclusions),
 and each entry checks the run card before starting.
