@@ -65,7 +65,7 @@ $PHG find-paths --path-keyfile path_key.tsv --hvcf-dir "$G/hvcf" --reference-gen
   --path-type diploid --prob-same-gamete "$STAY" --inbreeding-coefficient "$FCOEF" --min-reads 1 --threads 8 > findpaths.log 2>&1; echo "find-paths exit=$? paths=$(ls "$G/paths" | wc -l)"
 $PHG hapid-sample-table --hvcf-dir "$G/hvcf" --output-file "$G/hapid_sample.tsv" 2>&1 | tail -1
 NR=$(awk '$1 == "chr10"' "$BED" | wc -l)
-printf 'sample\tranges_called\tno_call\tB73/B73\tB73/Hd\tHd/Hd\tHd_dosage_mean\n' > "$OUT/parents_summary.tsv"
+printf 'sample\tranges_called\tno_call\tREF\tHET\tALT\tALT_dosage_mean\n' > "$OUT/parents_summary.tsv"
 for f in "$G"/parents/*_imputed_parents.txt; do s=$(basename "$f" _imputed_parents.txt)
   awk -v s="$s" -v NR0="$NR" -F'\t' '$1 != "chrom" {a = ($4 !~ /^B73/); b = ($5 !~ /^B73/); st = a + b; n++; c[st]++; d += st} END {printf "%s\t%d\t%d\t%d\t%d\t%d\t%.3f\n", s, n, NR0 - n, c[0], c[1], c[2], (n ? d / n : 0)}' "$f"
 done | sort >> "$OUT/parents_summary.tsv"
