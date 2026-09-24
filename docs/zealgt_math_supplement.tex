@@ -18,6 +18,7 @@
 \newcommand{\Pois}{\mathrm{Pois}}
 \newcommand{\LLR}{\mathrm{LLR}}
 \newcommand{\Hd}{H_d}
+\newcommand{\cov}{\lambda}                  % per-sample coverage (as in the nilHMM supplement)
 \newcommand{\code}[1]{\texttt{#1}}
 \newcommand{\todo}[1]{\textbf{[TO CHECK: #1]}}
 
@@ -129,12 +130,12 @@ sharpness of the $j/12$ lattice in deep BC$_1$ samples}
 \label{sec:reads}
 %======================================================================
 
-With mean coverage $c$ per sample, the reads at a site are $\Pois(c)$ (Lander--Waterman). At the BC$_2$S$_3$ skim depths:
+With mean coverage $\lambda$ per sample, the reads at a site are $\Pois(\lambda)$ (Lander--Waterman). At the BC$_2$S$_3$ skim depths:
 
 \begin{center}
 \begin{tabular}{lcccc}
 \toprule
-$c$ & 0 reads & 1 read & 2 reads & $\ge 3$ reads\\
+$\lambda$ & 0 reads & 1 read & 2 reads & $\ge 3$ reads\\
 \midrule
 0.25$\times$ & 0.78 & 0.19 & 0.024 & 0.002\\
 0.4$\times$  & 0.67 & 0.27 & 0.054 & 0.008\\
@@ -146,13 +147,13 @@ $c$ & 0 reads & 1 read & 2 reads & $\ge 3$ reads\\
 
 At $0.4\times$ a covered site almost always has one read, which samples one of the bulk's twelve copies; no single site separates
 heterozygous from homozygous, and dosage can only come from aggregating reads along a segment (the ancestry HMM of Text~\ref{sec:checks}).
-The ALT reads at a site thin the Poisson: if the sample's ALT fraction is $f$, the ALT reads are $\Pois(cf)$ and the probability of seeing
-none is $e^{-cf}$ (used in Eq.~\eqref{eq:veto}).
+The ALT reads at a site thin the Poisson: if the sample's ALT fraction is $f$, the ALT reads are $\Pois(\lambda f)$ and the probability of seeing
+none is $e^{-\lambda f}$ (used in Eq.~\eqref{eq:veto}).
 
 \paragraph{Duplicates.} Every model here treats reads as independent draws from the pool. A PCR duplicate is the same molecule counted
 twice, so it inflates both $n$ and the ALT count $a$ without adding information, and the likelihood ratios of Text~\ref{sec:discovery},
 which are sums over reads, overstate the evidence by roughly the duplication factor. At skim depth this is negligible; in the BC$_1$ samples
-(5--25$\times$ each), where one carrier plant contributes about $c/12$ ALT reads, it can push weak sites over the thresholds. Duplicate
+(5--25$\times$ each), where one carrier plant contributes about $\lambda/12$ ALT reads, it can push weak sites over the thresholds. Duplicate
 removal before variant calling is standard in pooled-sequencing pipelines \citep{huang2015pooled} and in GATK best practices
 \citep{vanderauwera2013}; the CRISP paper does not discuss it \citep{bansal2010crisp}.
 
@@ -185,12 +186,12 @@ Eq.~\eqref{eq:bc1} and the signature of paralogs or mis-mapping. \code{hidepth}:
 gain. Tier A additionally requires ALT reads in $\ge2$ BC$_1$ samples.
 
 \subsection{Witness veto}
-The veto keeps a candidate only if the witness pool shows $\ge1$ ALT read. For a real $\Hd$ allele, a line of depth $c$ shows no ALT read with
-probability $E[e^{-c\,g}]$ over the bulk fraction $g$ of Eq.~\eqref{eq:bulkmix}; using
-$E[e^{-cK/12}]=\big(\tfrac{1+e^{-c/12}}{2}\big)^{12}$,
+The veto keeps a candidate only if the witness pool shows $\ge1$ ALT read. For a real $\Hd$ allele, a line of coverage $\lambda$ shows no ALT read with
+probability $E[e^{-\lambda g}]$ over the bulk fraction $g$ of Eq.~\eqref{eq:bulkmix}; using
+$E[e^{-\lambda K/12}]=\big(\tfrac{1+e^{-\lambda/12}}{2}\big)^{12}$,
 \begin{equation}
-q(c)=\tfrac{27}{32}+\tfrac{3}{32}e^{-c}+\tfrac{1}{16}\Big(\tfrac{1+e^{-c/12}}{2}\Big)^{12},
-\qquad P(\text{real allele vetoed})\approx q(c)^{L}
+q(\lambda)=\tfrac{27}{32}+\tfrac{3}{32}e^{-\lambda}+\tfrac{1}{16}\Big(\tfrac{1+e^{-\lambda/12}}{2}\Big)^{12},
+\qquad P(\text{real allele vetoed})\approx q(\lambda)^{L}
 \label{eq:veto}
 \end{equation}
 for $L$ lines, treating lines as independent at the locus (they are not: sibling lines share BC$_1$ and BC$_2$ ancestry, which makes the true
