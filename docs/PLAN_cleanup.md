@@ -26,6 +26,8 @@ coverage-effect task need these, in the repo and on hazel:
 
 ## 2. Candidates to remove (each group needs a go)
 ### 2.1 hazel data — the bulk of the space (3.2 of 3.6 TB)
+**Blocked until zealgt §0 Task 1 is done** (zealgt `docs/PLAN_pipeline.md`): groups A–C hold the only copy of the demuxed reads of the
+libraries in use; their remaining samples are aligned from these FASTQs first, then verified, and only then may A–C be proposed.
 | group | size | files | condition before deleting |
 |---|---|---|---|
 | A. `results/work/` (Nextflow, `--outdir ZEAL/results` runs) | 1,903 GB | 1,482 | §2.2 verified; no Nextflow run in progress; no `-resume` planned from it |
