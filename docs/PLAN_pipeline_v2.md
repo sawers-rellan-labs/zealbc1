@@ -10,11 +10,31 @@ by every pool run, no duplicate removal anywhere. Each fix had to be applied in 
 of error. The known issues this plan must settle are in §4.
 
 ## 2. Principles
+
+### The rerun problem these principles address
+In the nilhmm runs, a costly step (demultiplexing, whole-genome alignment) that had already completed ran again after an edit that could
+not change its output: a comment, a cosmetic change to a module, or a resource reallocation. Each rerun left a new set of task
+directories, so `work/` multiplied for menial reasons (the audit found ~3.2 TB there, §5).
+
+The cause is how `-resume` decides: it reuses a task only if the task's **hash** is unchanged, and the hash covers the process's script
+text after variable substitution, its inputs, and its environment (conda / container).
+
+| change | reruns the task? | why |
+|---|---|---|
+| comment **inside** the `script:` block (bash `#`) | **yes** | it is part of the script text |
+| comment **outside** it (Groovy `//` above the block) | no | not part of the script |
+| `cpus` / `memory` / `time` changed, script uses `${task.cpus}` / `${task.memory}` (e.g. `-@ ${task.cpus}`, `-Xmx`) | **yes** | the value is substituted into the script text |
+| the same resource change, script does not reference it | no | directives alone are not hashed |
+| an input file touched (new mtime), same content | **yes** by default | default cache mode includes mtime |
+| the same, with `cache 'lenient'` | no | path + size only |
+| any edit, when the task's output already sits in its `storeDir` | no | the task is skipped whatever changed |
+
+### Principles
 1. **One module per step**, used by every entry; no standalone copies of a module's command.
 2. **Separate entries per stage** (the existing `--entry` dispatcher): editing a downstream module never puts upstream tasks at risk.
 3. **Costly, reusable outputs live in a permanent store (`storeDir`), not in `work/`**: CRAMs, per-pool demux QC. A task whose stored
    output exists is skipped whatever changed in the module; rerunning it is a deliberate act (delete the stored output).
-4. **Hash hygiene** (why cosmetic edits reran costly steps):
+4. **Hash hygiene** (from the table above):
    - comments and notes outside the `script:` block (Groovy `//`), never as bash `#` inside it;
    - threads and memory read from Slurm at run time (`-@ \$SLURM_CPUS_PER_TASK`), not `${task.cpus}` / `${task.memory}` in the script,
      so reallocating resources does not change the task hash;
