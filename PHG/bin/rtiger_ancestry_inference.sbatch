@@ -9,7 +9,7 @@
 #SBATCH --output=/rsstu/users/r/rrellan/BZea/ZEAL/results/log/rtiger_ancestry_inference_%j.out
 #SBATCH --error=/rsstu/users/r/rrellan/BZea/ZEAL/results/log/rtiger_ancestry_inference_%j.err
 # Ancestry inference (docs/PLAN_marker_union_pilot.md): ancestry mosaic per BC2S3 line from RTIGER on the donor's OWN tier-A sites (09-21 decision:
-# design BC2S3, rigidity 500, sites with zero ALT reads across the donor's lines excluded). Pileup of each line separately
+# rigidity 500 (nilHMM rtiger takes no design prior, nilhmm#27), sites with zero ALT reads across the donor's lines excluded). Pileup of each line separately
 # (mpileup -I -a AD) -> ad_to_counts.py -> rtiger_poolseq.R. Does not depend on the union.
 # Env: DONOR  SITES (the donor's step-4 table)  LINES_LIST (line CRAMs, B73 checks excluded)  OUT  [RIG=500]
 source ~/.bashrc >/dev/null 2>&1; source "$(conda info --base)/etc/profile.d/conda.sh"; conda activate /share/maize/frodrig4/conda/env/nilhmm
