@@ -26,8 +26,8 @@ results as of 2026-09-24. Earlier workbooks (01–05) cover the design and the d
   fraction of 7–11 % against 12.5 %. PHG is further from the expectation than RTIGER.
 - These are single families (one BC1 plant per donor), so no dilution of informative sites is expected; the shortfall points to PHG
   over-calling B73 (reference bias) — not yet tested.
-- Problems found and fixed on the way: a CRISP BED-coordinate bug, a union founder that PHG could not use, and the finding that nilHMM
-  ignores the design prior for RTIGER.
+- Problems found and fixed on the way: a CRISP BED-coordinate bug, and a union founder that PHG could not use. RTIGER in nilHMM takes
+  no breeding-design prior (sawers-rellan-labs/nilhmm#27), so RTIGER here has no generation prior.
 :::
 
 ## 1. Setup
@@ -66,8 +66,8 @@ of depth; line realign ~10 min per line (array). A full donor prep is about 4 h.
 | 4 | Gap filling | own sites ALT; gap sites REF if the donor's reads say tier ref, ALT if posterior ≥ 0.999 with the other donor as the prior, else missing | `PHG/bin/dhd_bayes.py` |
 | 5 | Union founder | gVCF: one reference block per lowcopy range, split at ALT records, no record at missing sites (§3.2) → pseudo-assembly (B73 + ALT) | `PHG/bin/union_founder_gvcf.py` |
 | 6 | PHG | pairwise graph (B73 + the donor's founder), the donor's lines only; find-paths diploid, F = 0, stay 0.99999, min-reads 1 | `PHG/bin/union_founder_phg.sbatch` |
-| 7 | RTIGER | per-line pileup at the donor's own tier-A sites, sites with no ALT read across lines dropped, rigidity 500 | `PHG/bin/rtiger_ancestry_inference.sbatch` |
-| 8 | Painting | per line: RTIGER BC2S2, RTIGER BC2S3, PHG | `PHG/analysis/paint_rtiger_priors_phg.R` |
+| 7 | RTIGER | per-line pileup at the donor's own tier-A sites, sites with no ALT read across lines dropped, rigidity 500; no design prior (§3.3) | `PHG/bin/rtiger_ancestry_inference.sbatch` |
+| 8 | Painting | per line: RTIGER, PHG | `PHG/analysis/paint_rtiger_phg.R` |
 
 Results on hazel: `ZEAL/results/bench_zx0540_chr10/`, `bench_zx0570_chr10/` (prep + discovery) and `union_zx0540_zx0570_chr10/`
 (union, count once, founders, PHG, RTIGER, paintings). Runs before the CRISP fix are kept in `discovery/<donor>_preBEDfix/` and
@@ -114,9 +114,8 @@ splits equally between the homozygotes. The TEO allele fraction is 12.5 % in bot
 | | B73 | HET | TEO | TEO allele fraction | lines with TEO calls |
 |---|---|---|---|---|---|
 | PHG (share of called ranges) | 87.9 % | 10.2 % | 1.9 % | 7.0 % | 44 / 44 |
-| RTIGER BC2S2 | 86.8 % | 9.1 % | 4.1 % | 8.7 % | 16 / 44 |
+| RTIGER | 86.8 % | 9.1 % | 4.1 % | 8.7 % | 16 / 44 |
 | BC2S2 expected | 84.4 % | 6.25 % | 9.4 % | 12.5 % | |
-| RTIGER BC2S3 | 86.8 % | 9.1 % | 4.1 % | 8.7 % | 16 / 44 |
 | BC2S3 expected | 85.9 % | 3.1 % | 10.9 % | 12.5 % | |
 
 **Zx.0540_P3** (40 lines, chr10; RTIGER on 39 lines, without PN6_SID484)
@@ -124,18 +123,17 @@ splits equally between the homozygotes. The TEO allele fraction is 12.5 % in bot
 | | B73 | HET | TEO | TEO allele fraction | lines with TEO calls |
 |---|---|---|---|---|---|
 | PHG (share of called ranges) | 86.4 % | 11.2 % | 2.4 % | 8.0 % | 39 / 40 |
-| RTIGER BC2S2 | 84.9 % | 8.5 % | 6.6 % | 10.8 % | 20 / 39 |
+| RTIGER | 84.9 % | 8.5 % | 6.6 % | 10.8 % | 20 / 39 |
 | BC2S2 expected | 84.4 % | 6.25 % | 9.4 % | 12.5 % | |
-| RTIGER BC2S3 | 84.9 % | 8.5 % | 6.6 % | 10.8 % | 20 / 39 |
 | BC2S3 expected | 85.9 % | 3.1 % | 10.9 % | 12.5 % | |
 
-RTIGER shares are of chr10 bp; PHG shares are of called ranges. The two RTIGER rows are the same run (§3.3).
+RTIGER shares are of chr10 bp; PHG shares are of called ranges. RTIGER has no generation prior (§3.3).
 
 ### 2.5 Paintings
 
-![Zx.0570_P2, chr10, 44 lines: RTIGER BC2S2 / RTIGER BC2S3 / PHG (local copy).](../../agent/paintings/Zx.0570_P2_chr10_PHG_RTIGER2priors.png)
+![Zx.0570_P2, chr10, 44 lines: RTIGER / PHG (local copy).](../../agent/paintings/Zx.0570_P2_chr10_RTIGER_PHG.png)
 
-![Zx.0540_P3, chr10, 40 lines (PN6_SID484 = Zx05403352, PHG only): RTIGER BC2S2 / RTIGER BC2S3 / PHG (local copy).](../../agent/paintings/Zx.0540_P3_chr10_PHG_RTIGER2priors.png)
+![Zx.0540_P3, chr10, 40 lines (PN6_SID484 = Zx05403352, PHG only): RTIGER / PHG (local copy).](../../agent/paintings/Zx.0540_P3_chr10_RTIGER_PHG.png)
 
 What the paintings show:
 
@@ -175,12 +173,13 @@ that built the blocks from the donor's covered stretches (`covered_blocks.sh`, n
 
 Consequence: a range without an ALT site has a founder haplotype identical to B73, and PHG reports it as no call.
 
-### 3.3 nilHMM ignores the design prior for RTIGER
+### 3.3 RTIGER in nilHMM takes no breeding-design prior
 
-`call_states()` sends `caller = "rtiger"` to `.rtiger_states(data, rigidity, ...)` without passing `design`; RTIGER learns its
-parameters from the data. The "BC2S3" and "BC2S2" RTIGER runs are byte-identical, and "RTIGER with design BC2S3" in the plan and earlier
-notes never applied. A design setting was added to the scripts (`DESIGN`, `090367c`) but has no effect for RTIGER. The callers that use
-`design` in nilHMM are `binhmm`, `fsfhap` and `pedigree`. Plan step 7 assumes an RTIGER BC2S3-vs-BC2S2 test; that test needs one of those.
+The `rtiger` caller in nilHMM (0.3.0, and the source at `96d5c48`) has only `rigidity`, `seed`, starting emission values, `threads` and
+`postprocess`. Start probabilities and transitions are estimated from the data by EM; the number of states is fixed at 3. `design` is
+accepted by `call_states()` but silently dropped for `rtiger`. So RTIGER here has no generation prior, and a BC2S2-vs-BC2S3 comparison
+(plan step 7) cannot be run with it. Filed as [sawers-rellan-labs/nilhmm#27](https://github.com/sawers-rellan-labs/nilhmm/issues/27):
+rtiger should take `design`, and until then should not accept it silently. The RTIGER scripts no longer pass `design` (`abc26df`).
 
 ### 3.4 Smaller issues
 
@@ -205,5 +204,5 @@ notes never applied. A design setting was added to the scripts (`DESIGN`, `09036
 
 1. Reference bias or missing sites: per range, count founder holes and compare ranges where PHG disagrees with RTIGER inside introgressions
    against ranges where they agree; same for the recurring HET spikes in the all-B73 lines.
-2. Design prior for the pooled lines (BC2S2 vs BC2S3): needs a caller that uses `design` (e.g. `binhmm`).
+2. Design prior for the pooled lines (BC2S2 vs BC2S3): waits for RTIGER to take `design` in nilHMM (nilhmm#27).
 3. The same CRISP fix in `PHG/qcset/variant_discovery.sbatch`, and rerunning the other donors' discovery (other sessions' lanes).
