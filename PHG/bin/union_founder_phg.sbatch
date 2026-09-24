@@ -1,7 +1,7 @@
 #!/bin/bash
 # Marker union pilot steps 4-5 for ONE donor (docs/PLAN_marker_union_pilot.md): union founder -> pairwise PHG (B73 + that donor's founder)
 # -> impute that donor's BC2S3 lines. Settings fixed by the plan: find-paths diploid, F = 0, prob-same-gamete 0.99999, min-reads 1.
-#   [1] founder gVCF from the gap-filling table, records only at the union sites (union_founder_gvcf.py: state 1 alt, 0 reference,
+#   [1] founder gVCF from the gap-filling table: one reference block per lowcopy range, split at the union sites (union_founder_gvcf.py: state 1 alt, 0 reference,
 #       NA no record) + pseudo-assembly
 #   [2] line reads: chr10 pairs from each line CRAM (collate first: map-kmers pairs R1/R2 by order)
 #   [3] PHG DB (B73 + founder, lowcopy ranges) -> export B73,<founder> -> kmer index -> map-kmers -> find-paths -> parents summary
@@ -25,8 +25,8 @@ source "$(conda info --base)/etc/profile.d/conda.sh"; conda activate "${CONDA_EN
 cd "$OUT"; t0=$SECONDS
 while read -r f; do [ -s "$f" ] && [ -s "$f.crai" ] || { echo "missing $f" >&2; exit 1; }; done < "$LINES_LIST"
 
-echo "== [1] union founder $FN (records only at the union sites)  $(date)"
-python3 "$C/PHG/bin/union_founder_gvcf.py" --dhd "$DHD" --donor "$DONOR" --name "$FN" --fai "$REF.fai" --out "gvcf/$FN.g.vcf"
+echo "== [1] union founder $FN (one block per lowcopy range; ALT records; no record at missing sites)  $(date)"
+python3 "$C/PHG/bin/union_founder_gvcf.py" --dhd "$DHD" --donor "$DONOR" --name "$FN" --bed "$BED" --fai "$REF.fai" --out "gvcf/$FN.g.vcf"
 bgzip -f "gvcf/$FN.g.vcf"; bcftools index -f -c "gvcf/$FN.g.vcf.gz"; mv -f "gvcf/$FN.g.vcf.alt.tsv" "asm/raw/$FN.alt.tsv"
 awk -v d="$FN" 'BEGIN{OFS="\t"; print "##fileformat=VCFv4.2"; print "##contig=<ID=chr10,length=152435371>"; print "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">"; print "#CHROM","POS","ID","REF","ALT","QUAL","FILTER","INFO","FORMAT",d} {print $1,$2,".",$3,$4,".",".",".","GT","1"}' "asm/raw/$FN.alt.tsv" | bgzip -c > "asm/raw/$FN.alt.vcf.gz"
 tabix -f -p vcf "asm/raw/$FN.alt.vcf.gz"
