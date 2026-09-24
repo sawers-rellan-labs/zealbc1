@@ -248,14 +248,17 @@ TeoNAM ([Chen et al. 2019, *Genetics* 213:1065](https://academic.oup.com/genetic
 They attribute the excess heterozygosity to "unconscious selection for more heterozygous plants that had hybrid vigor", and report the excess
 of maize alleles as a feature of all subpopulations.
 
-**Side by side:**
+**Side by side.** Informative here means informative for a biparental cross: a site is informative for a family if it is polymorphic
+between the parental gametes (the recurrent parent vs the donor haplotype H_d). A site can be variant at the level of the joint population
+(all ZEAL NILs) and still be non-informative for a given donor; in the union, such sites are the donor's gap REF calls.
+
 
 | | TeoNAM | ZEAL (this pilot) |
 |---|---|---|
 | samples | individual diploid RILs | 6-plant pools (BC1 samples and BC2S3 lines) |
 | variant discovery | external panel, done beforehand (ZeaGBSv2.7 TOPM, 955,690 SNPs) | per donor, from these reads (CRISP on the BC1 pools + BC2S3 pool) |
 | genotype representation | hard genotype calls (TASSEL-GBS), which FSFHap and the matrices use | read counts throughout: pooled allele counts → step-4 likelihoods, gap-filling posteriors, RTIGER / bbnil on counts; no hard genotype calls |
-| informative sites per family / donor | per-family MAF filter on the called genotypes | tier-A sites per donor (step 4) |
+| sites informative for a family / donor (polymorphic between the parental gametes: W22 or B73 vs the donor) | proxy from the progeny: sites segregating within the family (MAF ≥ 5 % per subpopulation) | measured on the parents' gametes: tier A = H_d carries ALT where B73 is REF (step 4, from the donor's BC1 pools) |
 | joint site set | union of the families' segregating sites (51,544) | union of the donors' tier-A sites (82,840) |
 | alleles at the other families' / donors' sites | called jointly on all samples at the discovered SNPs (TASSEL-GBS); leftover JLM gaps filled by flank interpolation in ancestry coding | union + gap filling: each donor's allele at the other donors' sites from its own reads (count once), the other donor as the prior for ALT |
 | per-line ancestry | FSFHap per family (BC1 backcross route) | RTIGER per donor on its own tier-A sites; bbnil BC2S2; PHG with the union founder |
