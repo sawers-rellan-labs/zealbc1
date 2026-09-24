@@ -26,7 +26,8 @@ lb <- fread(LAB, header = FALSE, select = 1:2, col.names = c("sample", "nil")); 
 if (!is.na(COV)) { cv <- fread(COV, select = c("SAMPLE", "MEAN_COVERAGE")); cx <- setNames(cv$MEAN_COVERAGE, cv$SAMPLE)
   m <- setNames(ifelse(names(m) %in% names(cx), sprintf("%s  %.2fx", m, cx[names(m)]), m), names(m)) }   # + skim coverage
 rel <- function(v) ifelse(v %in% names(m), m[v], v)
-ordn <- rel(c(teo[order(-f, name)]$name, setdiff(lines, teo$name))); d[, name := factor(rel(name), levels = ordn)]
+ordn <- rel(c(teo[order(-f, name)]$name, setdiff(lines, teo$name))); b <- grep("^B73", ordn, value = TRUE); ordn <- c(b, setdiff(ordn, b))   # B73 check pinned on top
+d[, name := factor(rel(name), levels = ordn)]
 lanes <- c("RTIGER", if (!is.null(bb)) unique(bb$method), "PHG"); d[, method := factor(method, levels = lanes)]
 p <- paint_style(paint_calls(as.data.frame(d[, .(name, chr, start_bp, end_bp, state, method)]), track = "method"), title = TTL,
                  subtitle = "states B73 / HET / TEO; PHG no-call and shared-haplotype ranges filled with flanking ancestry; RTIGER rigidity 500")
