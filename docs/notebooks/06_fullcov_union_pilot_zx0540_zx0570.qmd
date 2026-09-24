@@ -19,11 +19,11 @@ results as of 2026-09-24. Earlier workbooks (01–05) cover the design and the d
 ::: {.callout-note}
 ## Outcome (holds as of 2026-09-24)
 - Two mexicana donors with 5 BC1 samples each were demultiplexed, aligned and taken through discovery, union, count once, gap filling,
-  union founder and pairwise PHG on chr10; RTIGER was run on the same lines for comparison.
+  union founder and pairwise PHG on chr10; RTIGER and bbnil (BC2S2 prior) were run on the same lines for comparison.
 - **PHG and RTIGER agree on where the introgressions are**, but PHG breaks RTIGER's TEO segments into TEO / HET / B73 pieces and its
   HET segments into HET / B73 pieces, and it calls short HET spikes at the same ranges in many lines that RTIGER calls all B73.
-- **Both callers fall short of the single-locus expectation** for a BC2S2 or BC2S3 family: too much HET, too little TEO, and a TEO allele
-  fraction of 7–11 % against 12.5 %. PHG is further from the expectation than RTIGER.
+- **All three callers fall short of the single-locus expectation** for a BC2S2 or BC2S3 family: too much HET, too little TEO, and a TEO
+  allele fraction of 7–11 % against 12.5 %. PHG is furthest from the expectation, RTIGER closest; bbnil with the BC2S2 prior sits between.
 - These are single families (one BC1 plant per donor), so no dilution of informative sites is expected; the shortfall points to PHG
   over-calling B73 (reference bias) — not yet tested.
 - Problems found and fixed on the way: a CRISP BED-coordinate bug, and a union founder that PHG could not use. RTIGER in nilHMM takes
@@ -67,7 +67,8 @@ of depth; line realign ~10 min per line (array). A full donor prep is about 4 h.
 | 5 | Union founder | gVCF: one reference block per lowcopy range, split at ALT records, no record at missing sites (§3.2) → pseudo-assembly (B73 + ALT) | `PHG/bin/union_founder_gvcf.py` |
 | 6 | PHG | pairwise graph (B73 + the donor's founder), the donor's lines only; find-paths diploid, F = 0, stay 0.99999, min-reads 1 | `PHG/bin/union_founder_phg.sbatch` |
 | 7 | RTIGER | per-line pileup at the donor's own tier-A sites, sites with no ALT read across lines dropped, rigidity 500; no design prior (§3.3) | `PHG/bin/rtiger_ancestry_inference.sbatch` |
-| 8 | Painting | per line: RTIGER, PHG | `PHG/analysis/paint_rtiger_phg.R` |
+| 8 | bbnil | same per-line counts as RTIGER; design BC2S2; rrate = 4.72 × L_chr10 / n_markers, L_chr10 = 1.359 M (nilHMM TeoNAM v5 map) → 0.000127 (Zx.0570_P2, 50,308 markers), 0.000168 (Zx.0540_P3, 38,287) | `PHG/bin/bbnil_lines.R` |
+| 9 | Painting | per line: RTIGER, bbnil BC2S2, PHG; label = NIL id + skim coverage (`WGSmetrics_summary.tsv`, old batch-1 BAMs) | `PHG/analysis/paint_rtiger_phg.R` |
 
 Results on hazel: `ZEAL/results/bench_zx0540_chr10/`, `bench_zx0570_chr10/` (prep + discovery) and `union_zx0540_zx0570_chr10/`
 (union, count once, founders, PHG, RTIGER, paintings). Runs before the CRISP fix are kept in `discovery/<donor>_preBEDfix/` and
@@ -115,29 +116,34 @@ splits equally between the homozygotes. The TEO allele fraction is 12.5 % in bot
 |---|---|---|---|---|---|
 | PHG (share of called ranges) | 87.9 % | 10.2 % | 1.9 % | 7.0 % | 44 / 44 |
 | RTIGER | 86.8 % | 9.1 % | 4.1 % | 8.7 % | 16 / 44 |
+| bbnil BC2S2 | 88.3 % | 8.1 % | 3.6 % | 7.6 % | 44 / 44 |
 | BC2S2 expected | 84.4 % | 6.25 % | 9.4 % | 12.5 % | |
 | BC2S3 expected | 85.9 % | 3.1 % | 10.9 % | 12.5 % | |
 
-**Zx.0540_P3** (40 lines, chr10; RTIGER on 39 lines, without PN6_SID484)
+**Zx.0540_P3** (40 lines, chr10; RTIGER and bbnil on 39 lines, without PN6_SID484)
 
 | | B73 | HET | TEO | TEO allele fraction | lines with TEO calls |
 |---|---|---|---|---|---|
 | PHG (share of called ranges) | 86.4 % | 11.2 % | 2.4 % | 8.0 % | 39 / 40 |
 | RTIGER | 84.9 % | 8.5 % | 6.6 % | 10.8 % | 20 / 39 |
+| bbnil BC2S2 | 85.8 % | 8.8 % | 5.4 % | 9.8 % | 39 / 39 |
 | BC2S2 expected | 84.4 % | 6.25 % | 9.4 % | 12.5 % | |
 | BC2S3 expected | 85.9 % | 3.1 % | 10.9 % | 12.5 % | |
 
-RTIGER shares are of chr10 bp; PHG shares are of called ranges. RTIGER has no generation prior (§3.3).
+RTIGER and bbnil shares are of chr10 bp (bbnil segments cover 98.8–98.9 % of chr10 × lines); PHG shares are of called ranges. RTIGER has
+no generation prior (§3.3); bbnil uses the BC2S2 prior.
 
 ### 2.5 Paintings
 
-![Zx.0570_P2, chr10, 44 lines: RTIGER / PHG (local copy).](../../agent/paintings/Zx.0570_P2_chr10_RTIGER_PHG.png)
+![Zx.0570_P2, chr10, 44 lines: RTIGER / bbnil BC2S2 / PHG; label = NIL id + skim coverage (local copy).](../../agent/paintings/Zx.0570_P2_chr10_RTIGER_bbnil_PHG.png)
 
-![Zx.0540_P3, chr10, 40 lines (PN6_SID484 = Zx05403352, PHG only): RTIGER / PHG (local copy).](../../agent/paintings/Zx.0540_P3_chr10_RTIGER_PHG.png)
+![Zx.0540_P3, chr10, 40 lines (PN6_SID484 = Zx05403352, PHG only): RTIGER / bbnil BC2S2 / PHG; label = NIL id + skim coverage (local copy).](../../agent/paintings/Zx.0540_P3_chr10_RTIGER_bbnil_PHG.png)
 
 What the paintings show:
 
 - The callers agree on which lines carry introgressions and where.
+- bbnil follows RTIGER's introgressions but, like PHG, breaks them into short HET / B73 and TEO / HET pieces, and calls some HET or TEO
+  in every line.
 - Inside RTIGER's TEO segments (e.g. Zx05702132, Zx05702411, Zx05403561) PHG alternates TEO, HET and B73; inside RTIGER's HET segments
   (e.g. Zx05702242, Zx05702131) PHG alternates HET and B73.
 - In lines RTIGER calls all B73, PHG shows short HET (occasionally TEO) spikes at the same positions across many lines — specific ranges,
@@ -204,5 +210,6 @@ rtiger should take `design`, and until then should not accept it silently. The R
 
 1. Reference bias or missing sites: per range, count founder holes and compare ranges where PHG disagrees with RTIGER inside introgressions
    against ranges where they agree; same for the recurring HET spikes in the all-B73 lines.
-2. Design prior for the pooled lines (BC2S2 vs BC2S3): waits for RTIGER to take `design` in nilHMM (nilhmm#27).
+2. Design prior for the pooled lines (BC2S2 vs BC2S3): waits for RTIGER to take `design` in nilHMM (nilhmm#27). bbnil takes it now
+   (BC2S2 run here).
 3. The same CRISP fix in `PHG/qcset/variant_discovery.sbatch`, and rerunning the other donors' discovery (other sessions' lanes).
