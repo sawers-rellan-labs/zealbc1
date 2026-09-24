@@ -1,4 +1,4 @@
-# Plan (DRAFT) — pipeline v2: one Nextflow pipeline from raw libraries to marker layers
+# Plan (DRAFT) — pipeline v2: one Nextflow pipeline from raw libraries to ancestry and imputed genotypes
 
 Status: **proposal, 2026-09-24**, for discussion; nothing implemented. Storage section (§5) filled from the disk audit
 (`nilhmm/bin/audit_du.sbatch`, job 946049, results in `ZEAL/results/audit_du_20260924/`).
@@ -25,15 +25,15 @@ of error. The known issues this plan must settle are in §4.
 ## 3. Stages (entries) and modules
 | # | entry | modules | per | main output (store) |
 |---|---|---|---|---|
-| 1 | `demux` | DEMUX (cutadapt exact inline, `-e 0 --no-indels`), DEMUX_QC | pool | per-sample FASTQ (transient), `demux_qc/<pool>.tsv` (store, one file per pool) |
-| 2 | `align` | ALIGN (minibwa -x sr) → **MARKDUP** → CRAM (MAPQ 20, `-F 0x904`, duplicates flagged or removed) → MOSDEPTH | sample (BC1 sample, BC2S3 line, B73 pool) | `cram/<sample>.cram` (store) |
-| 2b | `sample_qc` | PANEL_COUNTS (`mpileup -I` at a blind QC panel, one task per sample) → COVERAGE_QC → RELATEDNESS_QC → DONOR_CONTENT_QC | sample / cohort | `sample_qc.tsv`: pass/fail + reason per sample; discovery and every caller read it |
-| 3 | `discovery` | WITNESS_POOL → CRISP (BC1 samples + witness only) → VETO → B73_COUNTS (`mpileup -I`) → STEP4 | donor × chr | `step4/<donor>.sites.tsv.gz` |
-| 4 | `union` | UNION (tier-A sites of the donor set; multi-allelic dropped) | donor set × chr | `union/<set>_<chr>.tsv.gz` |
-| 5 | `count_once` | COUNT_SAMPLE (`mpileup -I -T union`, one task per sample) → JOINT_STEP4 → GAP_FILL (`dhd_bayes`) | sample / donor set × chr | donor allele table |
-| 6 | `layer1` | LINE_COUNTS → RTIGER (design BC2S3, rigidity 500) | donor × chr | ancestry segments per line |
-| 7 | `layer2` | FOUNDER (gVCF → pseudo-assembly) → PHG_DB → PHG_IMPUTE (pairwise: B73 + donor, that donor's lines; F = 0, stay 0.99999) → RASTERIZE | donor × chr | genotypes at the union sites |
-| 8 | `report` | PAINT, summary tables, KS / single-locus checks | donor × chr | paintings, tables |
+| 1 | `read_demultiplexing` | DEMUX (cutadapt exact inline, `-e 0 --no-indels`), DEMUX_QC | pool | per-sample FASTQ (transient), `demux_qc/<pool>.tsv` (store, one file per pool) |
+| 2 | `read_alignment` | ALIGN (minibwa -x sr) → **MARK_DUPLICATES** → CRAM (MAPQ 20, `-F 0x904`, duplicates flagged or removed) → MOSDEPTH | sample (BC1 sample, BC2S3 line, B73 pool) | `cram/<sample>.cram` (store) |
+| 2b | `sample_quality_control` | QC_PANEL_COUNTS (`mpileup -I` at a blind QC panel, one task per sample) → COVERAGE_QC → RELATEDNESS_QC → DONOR_CONTENT_QC | sample / cohort | `sample_qc.tsv`: pass/fail + reason per sample; discovery and every caller read it |
+| 3 | `variant_discovery` | WITNESS_POOL → CRISP (BC1 samples + witness only) → WITNESS_VETO → B73_CONTROL_COUNTS (`mpileup -I`) → POOLED_LIKELIHOOD_TIERS | donor × chr | `step4/<donor>.sites.tsv.gz` |
+| 4 | `marker_union` | MARKER_UNION (tier-A sites of the donor set; multi-allelic dropped) | donor set × chr | `union/<set>_<chr>.tsv.gz` |
+| 5 | `donor_allele_calling` | UNION_SITE_COUNTS (`mpileup -I -T union`, one task per sample) → JOINT_POOLED_LIKELIHOOD → GAP_FILLING (`dhd_bayes`) | sample / donor set × chr | donor allele table |
+| 6 | `ancestry_inference` | LINE_ALLELE_COUNTS → RTIGER (design BC2S3, rigidity 500) | donor × chr | ancestry segments per line |
+| 7 | `genotype_imputation` | DONOR_FOUNDER (gVCF → pseudo-assembly) → PHG_DATABASE → PHG_IMPUTATION (pairwise: B73 + donor, that donor's lines; F = 0, stay 0.99999) → RASTERIZE | donor × chr | genotypes at the union sites |
+| 8 | `reporting` | CHROMOSOME_PAINTING, summary tables, KS / single-locus checks | donor × chr | paintings, tables |
 
 ### Stage 2b — sample QC before discovery (proposal, 2026-09-24)
 Discovery assumes every BC1 sample and every line belongs to its recorded donor; a pollination error, seed mix-up or contaminated
@@ -59,14 +59,14 @@ and each entry checks the run card before starting.
 ## 4. Known issues and where each is settled
 | # | issue (found 2026-09-20 → 24) | settled in | decision needed |
 |---|---|---|---|
-| 1 | No duplicate removal (BC1, lines, B73 pools). Pooled-caller benchmark and GATK best practices remove/mark PCR duplicates [1, 2]; CRISP paper silent [3] | stage 2 MARKDUP | tool (samtools markdup [4] needs collate/fixmate; Picard MarkDuplicates works on coordinate-sorted); mark vs remove; rerun existing CRAMs? |
+| 1 | No duplicate removal (BC1, lines, B73 pools). Pooled-caller benchmark and GATK best practices remove/mark PCR duplicates [1, 2]; CRISP paper silent [3] | stage 2 MARK_DUPLICATES | tool (samtools markdup [4] needs collate/fixmate; Picard MarkDuplicates works on coordinate-sorted); mark vs remove; rerun existing CRAMs? |
 | 2 | CRISP run with `--filterreads 0` (its mismatch filter off; the CRISP paper used ≤ 3 mismatches, MAPQ ≥ 20, base quality ≥ 17 [3]) | stage 3 CRISP | turn it back on? |
 | 3 | Insertion records at a SNP position overwrite its counts (ALT → 0) unless `mpileup -I` | one COUNTS helper used by stages 3, 5, 6 | make the helper skip indel records itself |
 | 4 | Demux QC table overwritten by every pool run | stage 1 DEMUX_QC | one file per pool (store) |
 | 5 | Witness veto depends on witness depth (10 lines at 0.4x kept 20% of records) | stage 3 VETO | keep "≥ 1 ALT read" or make it depth-aware |
 | 6 | Tiers depend on the count source (CRISP vs mpileup disagreed at ~15% of own tier-A sites) | stages 3 vs 5 | which counts define tiers |
 | 7 | RTIGER rigidity fixed at 500 vs a density-scaled rule | stage 6 | confirm 500 |
-| 8 | Union / count-once / gap filling / layer 1 exist only as standalone scripts (`PHG/bin/`) | stages 4–6 | port as modules |
+| 8 | Marker union / donor allele calling / gap filling / ancestry inference exist only as standalone scripts (`PHG/bin/`) | stages 4–6 | port as modules |
 
 ## 5. Storage, caching and cleanup (from the disk audit, 2026-09-24, job 946049)
 Measured (`du -sk` / `--inodes`, one array task per directory; table `ZEAL/results/audit_du_20260924/tasks/`):

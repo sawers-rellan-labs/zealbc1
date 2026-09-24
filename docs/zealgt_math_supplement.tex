@@ -1,7 +1,7 @@
 %% zealgt — mathematical supplement (DRAFT, 2026-09-24).
 %% Models behind the ZEAL genotyping pipeline (docs/PLAN_pipeline_v2.md): the crossing scheme and the donor haplotype,
 %% pooled samples (BC1 pools, BC2S3 bulks), per-donor discovery, the union of informative sites and gap filling, and the
-%% two marker layers. Structure follows the nilHMM supplement (nilhmm-paper/supplement_engine_math.tex): numbered Texts,
+%% ancestry inference and genotype imputation. Structure follows the nilHMM supplement (nilhmm-paper/supplement_engine_math.tex): numbered Texts,
 %% full derivations, one narrative. Numbers quoted from pilot runs are chr10, 2026-09-20 -> 24, and marked as such.
 \documentclass[11pt]{article}
 \usepackage{amsmath,amssymb}
@@ -36,7 +36,7 @@
 \item[Text S3] Reads at low coverage
 \item[Text S4] Per-donor variant discovery
 \item[Text S5] The union of informative sites and gap filling
-\item[Text S6] The two marker layers and their checks
+\item[Text S6] Ancestry inference, genotype imputation, and their checks
 \end{description}
 \clearpage
 
@@ -238,15 +238,15 @@ assembly alleles in the lowcopy ranges; chr10), gap ALT at posterior $\ge0.999$ 
 same precision at this depth. The residual $\sim26\%$ false is inherited from discovery.
 
 %======================================================================
-\section{The two marker layers and their checks}
+\section{Ancestry inference, genotype imputation, and their checks}
 \label{sec:checks}
 %======================================================================
 
-\paragraph{Layer 1, ancestry.} Per line, RTIGER \citep{campos2023rtiger} on the donor's own tier-A sites (design BC$_2$S$_3$, rigidity 500)
+\paragraph{Ancestry inference.} Per line, RTIGER \citep{campos2023rtiger} on the donor's own tier-A sites (design BC$_2$S$_3$, rigidity 500)
 gives segments with dosage $x\in\{0,1,2\}$. These feed the QTL scan (R/qtl \code{bcsft}, Haley--Knott) on a 0.1\,cM grid built from the
 union markers.
 
-\paragraph{Layer 2, genotypes.} Per donor, a two-founder PHG graph (B73 and the donor founder built from $D_{d\cdot}$ on $U$), imputing
+\paragraph{Genotype imputation.} Per donor, a two-founder PHG graph (B73 and the donor founder built from $D_{d\cdot}$ on $U$), imputing
 only that donor's lines, rasterised at $U$ (Eq.~\eqref{eq:projection}). These feed GWAS.
 
 \paragraph{Checks.} (i) Per-line Mb fractions REF/HET/ALT against the single-locus expectation (Text~\ref{sec:scheme}; single plant) or

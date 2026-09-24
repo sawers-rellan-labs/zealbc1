@@ -1,14 +1,14 @@
 #!/bin/bash
-#SBATCH --job-name=rtiger_layer1
+#SBATCH --job-name=rtiger_ancestry_inference
 #SBATCH --account=maize_cpu
 #SBATCH --partition=compute_partners
 #SBATCH --qos=short
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=16G
 #SBATCH --time=01:30:00
-#SBATCH --output=/rsstu/users/r/rrellan/BZea/ZEAL/results/log/rtiger_layer1_%j.out
-#SBATCH --error=/rsstu/users/r/rrellan/BZea/ZEAL/results/log/rtiger_layer1_%j.err
-# Layer 1 of docs/PLAN_marker_union_pilot.md: ancestry mosaic per BC2S3 line from RTIGER on the donor's OWN tier-A sites (09-21 decision:
+#SBATCH --output=/rsstu/users/r/rrellan/BZea/ZEAL/results/log/rtiger_ancestry_inference_%j.out
+#SBATCH --error=/rsstu/users/r/rrellan/BZea/ZEAL/results/log/rtiger_ancestry_inference_%j.err
+# Ancestry inference (docs/PLAN_marker_union_pilot.md): ancestry mosaic per BC2S3 line from RTIGER on the donor's OWN tier-A sites (09-21 decision:
 # design BC2S3, rigidity 500, sites with zero ALT reads across the donor's lines excluded). Pileup of each line separately
 # (mpileup -I -a AD) -> ad_to_counts.py -> rtiger_poolseq.R. Does not depend on the union.
 # Env: DONOR  SITES (the donor's step-4 table)  LINES_LIST (line CRAMs, B73 checks excluded)  OUT  [RIG=500]
@@ -16,7 +16,7 @@ source ~/.bashrc >/dev/null 2>&1; source "$(conda info --base)/etc/profile.d/con
 set -eo pipefail
 : "${DONOR:?}" "${SITES:?}" "${LINES_LIST:?}" "${OUT:?}"
 Z=/rsstu/users/r/rrellan/BZea/ZEAL; BIN=$Z/code/PHG/bin; RIG=${RIG:-500}; mkdir -p $OUT; cd $OUT
-echo "[rtiger_layer1] $DONOR | $(wc -l < $LINES_LIST) lines | rigidity $RIG | code $(git -C $Z/code log --oneline -1 2>/dev/null || echo unknown)  $(date)"
+echo "[rtiger_ancestry_inference] $DONOR | $(wc -l < $LINES_LIST) lines | rigidity $RIG | code $(git -C $Z/code log --oneline -1 2>/dev/null || echo unknown)  $(date)"
 zcat $SITES | awk -F'\t' 'NR==1{for(i=1;i<=NF;i++) c[$i]=i; next} $c["tier"]=="A"{print $c["chrom"]"\t"$c["pos"]"\t"$c["ref"]","$c["alt"]}' \
   | sort -k1,1 -k2,2n > alleles.tsv; bgzip -f alleles.tsv; tabix -f -s1 -b2 -e2 alleles.tsv.gz; zcat alleles.tsv.gz | cut -f1,2 > pos.tsv
 echo "tier-A sites: $(wc -l < pos.tsv)"

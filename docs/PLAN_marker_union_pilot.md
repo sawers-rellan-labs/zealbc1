@@ -30,9 +30,9 @@ those sites.
 Pair B's deliverable = `<donor>.sites.tsv.gz` (chr10 step 4, same procedure as pair A); it then joins the union at step 1.
 Zd.0040_P1 has no 1.2x lines and Zx.0100_P4's 4 are not aligned, so pair A cannot test coverage mixing; pair B can.
 
-**Update 2026-09-23 evening (user):** layer 2 (union founders + PHG) runs on **pair B only** (Zv.0490_P4 + Zx.0150_P2, the donors with
-lines in both batches); pair A (no 1.2x lines) stays the development run where union / count once / gap filling / layer 1 were built and
-checked. Gap filling benchmarked on the QC set (union_bench, DECISIONS 2026-09-23). Layer 1 (RTIGER r500, own tier A) done for Zd.0040_P1,
+**Update 2026-09-23 evening (user):** genotype imputation (union founders + PHG) runs on **pair B only** (Zv.0490_P4 + Zx.0150_P2, the donors with
+lines in both batches); pair A (no 1.2x lines) stays the development run where union / count once / gap filling / ancestry inference were built and
+checked. Gap filling benchmarked on the QC set (union_bench, DECISIONS 2026-09-23). Ancestry inference (RTIGER r500, own tier A) done for Zd.0040_P1,
 Zx.0100_P4, Zv.0490_P4. PHG stays pairwise: one two-founder graph (B73 + the donor) per donor, imputing only that donor's lines.
 The run for comparison with the QC-set benchmark = the two mexicana donors ONLY (Zx.0100_P4 + Zx.0150_P2): union, count once
 (their 5 BC1 samples + 2 B73 pools), gap filling with each other as the same-taxon prior. Zd.0040_P1 and Zv.0490_P4 are not in it.

@@ -19,7 +19,7 @@ them rather than repeating them.
 
 ::: {.callout-note}
 ## Outcome (holds as of 2026-09-23)
-- Two layers: **(1) ancestry mosaic** per line from RTIGER on the donor's tier-A sites; **(2) genotypes** from PHG, with a founder that
+- Two steps: **ancestry inference**, the mosaic per line from RTIGER on the donor's tier-A sites; **genotype imputation** from PHG, with a founder that
   states the donor's allele (ALT or REF) at the **union of tier-A sites of all donors**, rasterized at those sites.
 - PHG find-paths is fixed at F = 0, stay 0.99999 (the 09-22 grid was insensitive). The lever left is the founder.
 - R/qtl stays out of the pilot (needs n > 100 lines per taxon). When it runs, the 0.1 cM grid is rebuilt from the new markers.
@@ -71,14 +71,14 @@ wrong and was retracted:
 
 The single-plant documents of 09-10 (`agent/SUMMARY.md`, `agent/PLAN.md`) are superseded on this point (workbook 01).
 
-## 4. Two layers, and why PHG stays
+## 4. Ancestry inference, genotype imputation, and why PHG stays
 
-The data suggest two layers:
+The data suggest two steps:
 
 1. **Ancestry mosaic** — fast; RTIGER on the donor's tier-A sites (the 09-21 decision, rigidity 500).
 2. **Genotypes** at the union sites — informative and non-informative for each donor.
 
-A projection of layer 1 through DH*d* would give layer 2 by a join. PHG is kept for layer 2 (Rubén wants it); the aim is for the PHG
+A projection of the ancestry through DH*d* would give the genotypes by a join. PHG is kept for genotype imputation (Rubén wants it); the aim is for the PHG
 table on the union of informative sites to come closer to the real genotype table, which is what GWAS needs. Its two known weaknesses
 in the pilot are fragmentation relative to RTIGER and ALT under-calling (workbook 03). The projection stays available as the cheap
 comparator.
@@ -104,7 +104,7 @@ the TeoNAM JLM 0.1 cM set (9,063 markers, TeoNAM cM), with the SNP50K RTIGER mos
 
 Consequences for this plan:
 
-- The scan needs **ancestry** along a map, so its input is layer 1 (or PHG's ancestry, if PHG wins on the QC set), not the union genotypes.
+- The scan needs **ancestry** along a map, so its input is the ancestry inference (or PHG's ancestry, if PHG wins on the QC set), not the union genotypes.
 - The TeoNAM JLM grid belongs to TeoNAM's marker set. Since markers are being rediscovered, the grid is **rebuilt** from the new markers:
   union markers → cM by `nilHMM::bp_to_cm` on the TeoNAM native v5 map (as `zeal_snp50k_cm_grid.R` does) → 0.1 cM greedy thinning (as in
   `zeal_jlm_build.R`). Rasterize with NA in gaps between disagreeing segments so `calc.genoprob` gives probabilities there.
