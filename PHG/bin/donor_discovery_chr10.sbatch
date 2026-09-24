@@ -40,9 +40,14 @@ echo "== [2] CRISP: $(wc -l < "$BC1_LIST") BC1 samples + BC2S3 pool, lowcopy BED
 set +e; /usr/bin/time -v "$CRISP" --bams bams.txt --ref "$REF" --bed "$BED" --regions chr10 -p 12 --sm 0 --mmq 20 --filterreads 0 --minc 2 --VCF crisp_all.vcf > crisp.log 2> crisp.time; set -e   # CRISP exits 1 on success
 grep -E "Elapsed|Maximum resident" crisp.time; echo "records: $(grep -vc '^#' crisp_all.vcf)"
 bgzip -f crisp_all.vcf; tabix -f -p vcf crisp_all.vcf.gz
+# CRISP reads the BED end one base too far (tested 2026-09-24: BED "chr10 105269 105270" = base 105270 only -> CRISP reported 105271), so it
+# also calls the base after every range. Keep only records inside the true ranges (bcftools -T reads a .bed as 0-based half-open) before
+# anything downstream (veto, step 4, union, RTIGER).
+bcftools view -T "$BED" crisp_all.vcf.gz -Oz -o crisp_inbed.vcf.gz; tabix -f -p vcf crisp_inbed.vcf.gz
+echo "records inside the BED ranges: $(zcat crisp_inbed.vcf.gz | grep -vc '^#') (dropped past the range ends: $(( $(zcat crisp_all.vcf.gz | grep -vc '^#') - $(zcat crisp_inbed.vcf.gz | grep -vc '^#') )))"
 
 echo "== [3] witness veto (>=1 ALT read in $WIT)  $(date)"
-python3 "$C/PHG/bin/veto_witness.py" crisp_all.vcf.gz crisp_vetoed.vcf "$WIT"; bgzip -f crisp_vetoed.vcf; tabix -f -p vcf crisp_vetoed.vcf.gz
+python3 "$C/PHG/bin/veto_witness.py" crisp_inbed.vcf.gz crisp_vetoed.vcf "$WIT"; bgzip -f crisp_vetoed.vcf; tabix -f -p vcf crisp_vetoed.vcf.gz
 
 echo "== [4] B73 comparison: count the 2 B73 pools at the kept sites (-q20 -Q20; -I: an insertion record at the SNP position would overwrite its counts)  $(date)"
 printf '%s\n' "${B73_CTRL[@]}" > b73_bams.txt
