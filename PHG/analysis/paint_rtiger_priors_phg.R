@@ -8,7 +8,7 @@ suppressPackageStartupMessages({ library(nilHMM); library(data.table); library(g
 a <- commandArgs(TRUE); R3 <- a[1]; R2 <- a[2]; PPAR <- a[3]; PHV <- a[4]; FN <- a[5]; LAB <- a[6]; out <- a[7]; TTL <- a[8]; CHRLEN <- 152435371L
 rt <- function(f, m) { x <- fread(f); setnames(x, tolower(names(x))); x[chr == 10, .(name, chr = 10L, start_bp, end_bp, state, method = m)] }
 r3 <- rt(R3, "RTIGER BC2S3"); r2 <- rt(R2, "RTIGER BC2S2")
-lines <- sort(unique(r3$name))
+lines <- sort(union(unique(r3$name), sub("_imputed_parents\\.txt$", "", list.files(PPAR, pattern = "_imputed_parents\\.txt$"))))   # lines without RTIGER calls keep their PHG lane
 hvhap <- function(f) { l <- grep("^#", readLines(f), invert = TRUE, value = TRUE); x <- strsplit(l, "\t")
   data.table(start = as.integer(sapply(x, `[`, 2)), hapid = gsub("[<>]", "", sapply(x, `[`, 5))) }
 shared <- merge(hvhap(file.path(PHV, "B73.h.vcf")), hvhap(file.path(PHV, paste0(FN, ".h.vcf"))), by = "start")[hapid.x == hapid.y, start]
@@ -23,7 +23,7 @@ d <- rbind(phg, r3, r2)
 teo <- r3[, .(f = sum((end_bp - start_bp) * (state / 2)) / CHRLEN), by = name]
 lb <- fread(LAB, header = FALSE, select = 1:2, col.names = c("sample", "nil")); m <- setNames(lb$nil, lb$sample)   # label = NIL id only
 rel <- function(v) ifelse(v %in% names(m), m[v], v)
-ordn <- rel(teo[order(-f, name)]$name); d[, name := factor(rel(name), levels = ordn)]
+ordn <- rel(c(teo[order(-f, name)]$name, setdiff(lines, teo$name))); d[, name := factor(rel(name), levels = ordn)]
 d[, method := factor(method, levels = c("RTIGER BC2S2", "RTIGER BC2S3", "PHG"))]
 p <- paint_style(paint_calls(as.data.frame(d[, .(name, chr, start_bp, end_bp, state, method)]), track = "method"), title = TTL,
                  subtitle = "states B73 / HET / TEO; PHG no-call and shared-haplotype ranges filled with flanking ancestry; RTIGER rigidity 500 (nilHMM ignores `design` for RTIGER)")
