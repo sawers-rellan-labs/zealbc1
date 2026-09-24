@@ -9,9 +9,9 @@
 #SBATCH --output=/rsstu/users/r/rrellan/BZea/ZEAL/results/log/count_once_step4_%j.out
 #SBATCH --error=/rsstu/users/r/rrellan/BZea/ZEAL/results/log/count_once_step4_%j.err
 # Count-once, part 2: join the per-sample counts (count_union_sample.sbatch) -> one VCF -> ONE joint step 4 over all donors' BC1 samples
-# (pilot_step4_postfilter_llr.py, unchanged; B73 pools = zero class; no veto) -> donor allele table (dhd_joint.py: fixed rules A, A+B; dhd_bayes.py: empirical-Bayes prior from the other donors).
+# (pilot_step4_postfilter_llr.py, unchanged; B73 pools = zero class; no veto) -> gap filling (dhd_bayes.py; also writes the heuristic A+B state per site).
 # Env: OUT (same dir as part 1)  DONORS (space-separated)  [DEMUX_QC=$Z/results/gate2/demux_qc/demux_qc.tsv]
-#      [UNION=$Z/results/pilot_union_chr10/union/union_chr10.tsv.gz]  [MAP=<ready step-4 map.tsv; default: built from DEMUX_QC + the 2 B73 pools>]
+#      [BAYES_ARGS=extra dhd_bayes.py options, e.g. "--taxa D1=Zx,D2=Zx --same-taxon"]  [UNION=$Z/results/pilot_union_chr10/union/union_chr10.tsv.gz]  [MAP=<ready step-4 map.tsv; default: built from DEMUX_QC + the 2 B73 pools>]
 source ~/.bashrc >/dev/null 2>&1; source "$(conda info --base)/etc/profile.d/conda.sh"; conda activate /share/maize/frodrig4/conda/env/nilhmm
 set -eo pipefail
 : "${OUT:?}" "${DONORS:?}"
@@ -30,6 +30,5 @@ python3 $BIN/pilot_step4_postfilter_llr.py --vcf joint.vcf.gz --map map.tsv --ti
   --schnable $P/panel_positions/wideseq_chr10_snps.tsv --mgdb $P/panel_positions/mgdb26hq_chr10_snps.tsv --out step4 2>&1 | tail -3
 cat step4/summary.tsv
 args=(); for d in $DONORS; do args+=("$d=$OUT/step4/$d.sites.tsv.gz"); done
-python3 $BIN/dhd_joint.py $OUT $UNION "${args[@]}"
-python3 $BIN/dhd_bayes.py $OUT/bayes $UNION "${args[@]}"
+python3 $BIN/dhd_bayes.py $OUT/bayes $UNION "${args[@]}" ${BAYES_ARGS:-}
 echo "DONE $(date)"
