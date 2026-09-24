@@ -217,7 +217,55 @@ rtiger should take `design`, and until then should not accept it silently. The R
   introgressions sit on ranges with more holes has not been tested.
 - chr10 only; one run per donor; the 1.2x data does not exist for these donors.
 
-## 5. Open questions
+## 5. Comparison with TeoNAM
+
+TeoNAM ([Chen et al. 2019, *Genetics* 213:1065](https://academic.oup.com/genetics/article/213/3/1065/5930618)): five teosinte × W22 families,
+1,257 BC1S4 RILs, genotyped by GBS as individual diploid plants.
+
+**Their pipeline (Methods):**
+
+1. **Site catalog and joint calling.** The TASSEL5-GBS Production Pipeline called genotypes "based on 955,690 SNPs in the ZeaGBSv2.7 Production
+   TagsOnPhysicalMap file" — a catalog discovered beforehand on an external maize/teosinte GBS panel. Alleles were called at every catalog site
+   **jointly on all 1,257 samples**.
+2. **Informative sites per family.** Filter on those calls, separately for each subpopulation: MAF ≥ 5 %, sites thinned 64 bp apart.
+3. **Imputation per family.** FSFHap (TASSEL5) per chromosome: backcross route, Phet = 0.03125 (the BC1S4 expectation), Fillgaps = TRUE;
+   ~13,733 SNPs per family. Genetic maps per family with R/qtl `est.map` (Haldane, error 0.001, BC1S4 pedigree); composite map 1,540 cM.
+4. **Joint matrix for linkage mapping (JLM).** The families' sites combined into 51,544 unique SNPs; genotypes coded as parental ancestry
+   (W22 homozygous 0, heterozygous 1, non-W22 homozygous 2); the remaining gaps filled from the flanking markers when both flanks agree;
+   4,578 markers after breakpoint imputation.
+5. **Separate GWAS matrix.** Looser filter (MAF > 0.01, missing < 0.75, heterozygosity < 0.1), FSFHap per chromosome and family again;
+   118,838 SNPs.
+
+**The same distortion.** TeoNAM also has excess HET, too little homozygous donor and an excess of the recurrent parent, in every family:
+
+| | recurrent (W22 / B73) | HET | TEO |
+|---|---|---|---|
+| TeoNAM BC1S4 expected | 73.4 % | 3.1 % | 23.4 % |
+| TeoNAM observed | 76.6 % | 8.1 % (2.6× expected) | 15.0 % (0.64×) |
+| Zx.0540_P3, RTIGER vs BC2S2 expected | 84.9 % vs 84.4 % | 8.5 % vs 6.25 % (1.4×) | 6.6 % vs 9.4 % (0.70×) |
+| Zx.0570_P2, RTIGER vs BC2S2 expected | 86.8 % vs 84.4 % | 9.1 % vs 6.25 % (1.5×) | 4.1 % vs 9.4 % (0.44×) |
+
+They attribute the excess heterozygosity to "unconscious selection for more heterozygous plants that had hybrid vigor", and report the excess
+of maize alleles as a feature of all subpopulations.
+
+**Side by side:**
+
+| | TeoNAM | ZEAL (this pilot) |
+|---|---|---|
+| samples | individual diploid RILs | 6-plant pools (BC1 samples and BC2S3 lines) |
+| site catalog | external (ZeaGBSv2.7 TOPM, 955,690 SNPs) | discovered per donor from these reads (CRISP on the BC1 pools + BC2S3 pool) |
+| informative sites per family / donor | per-family MAF filter on the catalog calls | tier-A sites per donor (step 4) |
+| joint site set | union of the families' segregating sites (51,544) | union of the donors' tier-A sites (82,840) |
+| alleles at the other families' / donors' sites | called jointly on all samples at the catalog sites (TASSEL-GBS); leftover JLM gaps filled by flank interpolation in ancestry coding | union + gap filling: each donor's allele at the other donors' sites from its own reads (count once), the other donor as the prior for ALT |
+| per-line ancestry | FSFHap per family (BC1 backcross route) | RTIGER per donor on its own tier-A sites; bbnil BC2S2; PHG with the union founder |
+| linkage-mapping vs GWAS matrices | two matrices, both from per-family imputation | not built yet (plan step 6: rasterize at the union sites) |
+
+**FSFHap on these lines.** nilHMM's `fsfhap` caller was run per donor (lines = one family, design BC2S2) and returned no states. That is
+the documented behaviour, not a bug (`nilhmm/design/FSFHAP_PORT.md`): TASSEL takes the backcross route only for a recurrent contribution of
+0.75 (BC1), so BC2 falls through to `BiparentalHaplotypeFinder`, which needs two balanced full-sib clusters per window and is documented as
+"inappropriate for NILs" (> 90 % of the genome homozygous recurrent in every line; no seed window). TeoNAM works because it is BC1.
+
+## 6. Open questions
 
 1. Reference bias or missing sites: per range, count founder holes and compare ranges where PHG disagrees with RTIGER inside introgressions
    against ranges where they agree; same for the recurring HET spikes in the all-B73 lines.
