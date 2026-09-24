@@ -24,7 +24,7 @@ teo <- r3[, .(f = sum((end_bp - start_bp) * (state / 2)) / CHRLEN), by = name]
 lb <- fread(LAB, header = FALSE, select = 1:2, col.names = c("sample", "nil")); m <- setNames(lb$nil, lb$sample)   # label = NIL id only
 rel <- function(v) ifelse(v %in% names(m), m[v], v)
 ordn <- rel(teo[order(-f, name)]$name); d[, name := factor(rel(name), levels = ordn)]
-d[, method := factor(method, levels = c("PHG", "RTIGER BC2S3", "RTIGER BC2S2"))]
+d[, method := factor(method, levels = c("RTIGER BC2S2", "RTIGER BC2S3", "PHG"))]
 p <- paint_style(paint_calls(as.data.frame(d[, .(name, chr, start_bp, end_bp, state, method)]), track = "method"), title = TTL,
                  subtitle = "states B73 / HET / TEO; PHG no-call and shared-haplotype ranges filled with flanking ancestry; RTIGER rigidity 500 (nilHMM ignores `design` for RTIGER)")
 fs <- p$scales$get_scales("fill"); if (!is.null(fs)) fs$labels <- c("B73", "HET", "TEO")   # nilHMM paint_calls labels states REF/HET/ALT
