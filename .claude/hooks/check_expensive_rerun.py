@@ -4,13 +4,13 @@
 pipeline, zealgt docs/PLAN_pipeline.md §0 Task 2.)
 
 It reads the Bash command plus every local script the command runs (`ssh hazel 'bash -s' < agent/suggested_script_*.sh`,
-`sbatch <file>`, `bash <file>`), and the nilhmm launchers / PHG sbatch files those scripts call. When that text submits work
+`sbatch <file>`, `bash <file>`), and the scripts those scripts run in turn. File names that are only mentioned are not followed. When that text submits work
 (sbatch / nextflow run) and names an expensive step, it returns "ask": the user sees the permission prompt with the reason.
 Stub runs are ignored. It never allows or denies; otherwise the normal permission flow runs."""
 import json, os, re, sys
 
 REPO = os.environ.get('CLAUDE_PROJECT_DIR') or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SUBMIT = re.compile(r'\bsbatch\b|\bnextflow\s+run\b')
+SUBMIT = re.compile(r'(?<![.\w])sbatch\b|\bnextflow\s+run\b')   # not the .sbatch file extension
 STUB = re.compile(r'-stub(-run)?\b')
 RUNS_JOBS = re.compile(r'(^|[;&|(]\s*)(\w+=\S*\s+)*(ssh|sbatch|nextflow|bash|sh)\b')   # git/grep/cat etc. never submit
 EXPENSIVE = {
@@ -20,15 +20,16 @@ EXPENSIVE = {
 }
 
 def script_paths(text):
+    """Only scripts that are executed: `< file`, `sbatch [opts] file`, `bash|sh file`. A file name merely mentioned is not followed.
+    Relative names are also looked up in the directories the launchers are run from (nilhmm/, nilhmm/bin/, PHG/bin/)."""
     cands = re.findall(r'<\s*([\w./~-]+\.(?:sh|sbatch))', text)
-    cands += re.findall(r'\b(?:sbatch|bash|sh)\s+(?:--?\S+\s+)*([\w./~-]+\.(?:sh|sbatch))', text)
-    cands += ['nilhmm/' + m for m in re.findall(r'(q_nilhmm_\w+\.sh)', text)]
-    cands += ['PHG/bin/' + m for m in re.findall(r'\b(\w+\.sbatch)\b', text)]
-    cands += ['nilhmm/bin/' + m for m in re.findall(r'\b(\w+\.sbatch)\b', text)]
+    cands += re.findall(r'(?<![.\w])(?:sbatch|bash|sh)\s+(?:--?\S+\s+)*([\w./~-]+\.(?:sh|sbatch))', text)
     seen = []
     for c in cands:
-        p = os.path.expanduser(c if os.path.isabs(c) else os.path.join(REPO, c))
-        if os.path.isfile(p) and p not in seen: seen.append(p)
+        c = os.path.expanduser(c)
+        tries = [c] if os.path.isabs(c) else [os.path.join(REPO, d, c) for d in ('', 'nilhmm', 'nilhmm/bin', 'PHG/bin')]
+        for p in tries:
+            if os.path.isfile(p) and p not in seen: seen.append(p); break
     return seen
 
 def gather(cmd):
