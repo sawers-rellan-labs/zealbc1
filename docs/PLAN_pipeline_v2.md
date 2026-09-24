@@ -1,6 +1,6 @@
 # Plan (DRAFT) — pipeline v2: one Nextflow pipeline from raw libraries to marker layers
 
-Status: **proposal, 2026-09-24**, for discussion; nothing implemented. Storage section (§5) pending the disk audit
+Status: **proposal, 2026-09-24**, for discussion; nothing implemented. Storage section (§5) filled from the disk audit
 (`nilhmm/bin/audit_du.sbatch`, job 946049, results in `ZEAL/results/audit_du_20260924/`).
 
 ## 1. Why
@@ -49,15 +49,37 @@ and each entry checks the run card before starting.
 | 7 | RTIGER rigidity fixed at 500 vs a density-scaled rule | stage 6 | confirm 500 |
 | 8 | Union / count-once / gap filling / layer 1 exist only as standalone scripts (`PHG/bin/`) | stages 4–6 | port as modules |
 
-## 5. Storage, caching and cleanup — PENDING the disk audit
-To be written from the audit: size and file count per write location (`ZEAL/{code,work,reference,envs}`, every `results/<subdir>`, every
-Nextflow `work/`, the PHG databases, `/share/maize/frodrig4/{conda,tmp}`). Questions it must answer:
-- `workDir` on `/share/maize/frodrig4/...` (2 TB, not persistent) instead of `${params.outdir}/work` on `/rsstu` (today's setting);
-- demux FASTQs (~150 GB per pool): capped concurrent DEMUX + deletion after ALIGN, or one DEMUX+ALIGN task per pool writing FASTQs to
-  its own scratch;
-- what moves to `storeDir` (CRAMs, demux QC, step-4 tables?) and where;
-- which existing `results/` subdirectories are kept, archived or deleted (pilot version soup, superseded runs, stub outputs);
-- routine: `nextflow clean -f -but <last run>` after each successful run, plus a size report.
+## 5. Storage, caching and cleanup (from the disk audit, 2026-09-24, job 946049)
+Measured (`du -sk` / `--inodes`, one array task per directory; table `ZEAL/results/audit_du_20260924/tasks/`):
+
+| location | size | files |
+|---|---|---|
+| `results/work/` (Nextflow, `--outdir ZEAL/results` runs) | 1,903 GB | 1,482 |
+| `results/gate2/work/` | 1,015 GB | 1,064 |
+| `results/bc2s3_batch2/work/` | 279 GB | 2,047 |
+| `results/demux/` | 81 GB | 37 |
+| `ZEAL/reference/` | 65 GB | 263 |
+| `results/align_membench/` (pool-1B CRAMs) | 41 GB | 25 |
+| `results/cram/` | 22 GB | 21 |
+| `results/b73_control/` | 22 GB | 26 |
+| `/share/maize/frodrig4/tmp` | 22 GB | 652 |
+| `results/qcset_designB/`, `results/pilot_1B_chr10/` | 17 GB, 16 GB | 5.6K, 6.0K |
+| `ZEAL/envs/`, `/share/maize/frodrig4/conda` | 15 GB, 12 GB | 49K, 160K |
+| all other `results/*` (pilots, benchmarks, logs, PHG DBs 0.2–1.2 GB each) | < 10 GB each | |
+| `results/stub/` | 0.3 GB | 106K |
+
+Findings: ~3.2 of ~3.6 TB is Nextflow `work/` (few, huge files: demux FASTQs + alignment intermediates of the pool, gate-2 and
+batch-2 runs), because `nextflow.config` sets `workDir = "${params.outdir}/work"` on the persistent partition. Published results are
+small. The large file counts are environments and the stub run, not data.
+
+Rules proposed for v2:
+1. `workDir` on `/share/maize/frodrig4/nf_work/<run>` (2 TB, not persistent; 22 GB used today). Results published to `/rsstu`.
+2. CRAMs, per-pool demux QC and step-4 tables in a `storeDir` on `/rsstu` (`ZEAL/store/{cram,demux_qc,step4}`), never in `work/`.
+3. Demux FASTQs never outlive their alignment: either capped concurrent DEMUX (`maxForks` 3–4, ≤ ~600 GB at a time) with deletion once the
+   pool's ALIGN tasks finish, or one DEMUX+ALIGN task per pool writing FASTQs to its own scratch (decision open).
+4. After each successful run: `nextflow clean -f -but <last>` and a size report; stub runs always cleaned.
+5. Existing `work/` (3.2 TB): before deleting, confirm every CRAM / table the project uses is published outside `work/`
+   (`results/cram`, `results/align_membench`, `results/bc2s3_batch2/cram`, the pilot dirs) — decision and check pending, nothing deleted.
 
 ## 6. Supervision
 Per run: own launch dir and `workDir`; a post-run check (work size, failed tasks, published outputs); monitors, not sleep loops; long runs
