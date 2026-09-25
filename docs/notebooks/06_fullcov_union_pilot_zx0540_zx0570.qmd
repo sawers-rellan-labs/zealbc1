@@ -117,7 +117,7 @@ of depth; line realign ~10 min per line (array). A full donor prep is about 4 h.
 | 8 | bbnil | same per-line counts as RTIGER; design BC2S2; rrate = 4.72 × L_chr10 / n_markers, L_chr10 = 1.359 M (nilHMM TeoNAM v5 map) → 0.000127 (Zx.0570_P2, 50,308 markers), 0.000168 (Zx.0540_P3, 38,287) | `PHG/bin/bbnil_lines.R` |
 | 9 | B73 check | PN10_SID893 (batch-1 B73 control, 0.57x, realigned): RTIGER decoded with the lines' fit, bbnil with the lines' rrate, PHG on the same founder — the lines' results unchanged | `PHG/bin/rtiger_bbnil_check.R`, `union_founder_phg.sbatch` |
 | 10 | PHG genotype raster | each line's genotype at every union site from its PHG path + the donor's allele: not called → NA; B73/B73 → 0; carries H_d at a donor ALT / REF / missing site → 1 or 2 / 0 / NA (the GWAS matrix) | `PHG/bin/phg_genotype_raster.R` |
-| 11 | Painting | per line: RTIGER, bbnil BC2S2, PHG ancestry (ranges; no-calls filled from the flanks), PHG genotype (raster at the donor's ALT and missing sites, runs merged, NA blank); B73 check pinned on top; label = NIL id + skim coverage (`WGSmetrics_summary.tsv`, old batch-1 BAMs) | `PHG/analysis/paint_rtiger_phg.R` |
+| 11 | Painting | per line: RTIGER, bbnil BC2S2, PHG ancestry (ranges; no-calls filled from the flanks), PHG genotype (the raster at all union sites, as in the GWAS matrix; runs merged, NA blank); B73 check pinned on top; label = NIL id + skim coverage (`WGSmetrics_summary.tsv`, old batch-1 BAMs) | `PHG/analysis/paint_rtiger_phg.R` |
 
 Results on hazel: `ZEAL/results/bench_zx0540_chr10/`, `bench_zx0570_chr10/` (prep + discovery) and `union_zx0540_zx0570_chr10/`:
 `counts/` (count once, gap filling), `phg/` (founders + PHG), `phg_Nmask/` (founders with donor-missing sites masked N; same paths),
@@ -212,8 +212,9 @@ lines byte-identical); the mask only protects anything read off the founder sequ
 What the paintings show:
 
 - The callers agree on which lines carry introgressions and where.
-- The PHG genotype lane shows the missing data the ancestry lane hides: white stripes inside the introgressions where the donor's allele
-  is missing, and at PHG's no-call ranges everywhere else. The B73 check's genotype lane is B73 with gaps.
+- The PHG genotype lane shows the genotypes at all union sites and the missing data the ancestry lane hides: inside the introgressions it
+  alternates TEO / HET with B73 (the union sites where the donor carries REF) and blank (the donor's missing sites); PHG's no-call ranges are
+  blank everywhere. The B73 check's genotype lane is B73 with gaps.
 - bbnil follows RTIGER's introgressions but, like PHG, breaks them into short HET / B73 and TEO / HET pieces, and calls some HET or TEO
   in every line.
 - Inside RTIGER's TEO segments (e.g. Zx05702132, Zx05702411, Zx05403561) PHG alternates TEO, HET and B73; inside RTIGER's HET segments
