@@ -262,7 +262,7 @@ pools of BC1 plants here).
 | per-sample data at each site | a hard genotype call (0 / 1 / 2 or missing, from TASSEL-GBS) | REF and ALT read counts; no genotype is called (step 4, gap filling and RTIGER work on the counts) |
 | informative sites (segregating sites in a biparental cross) | sites segregating within the family's RILs (MAF ≥ 5 % per subpopulation, on the TASSEL-GBS calls) | sites segregating within the donor's BC1 samples and among its BC2S3 samples (tier A in step 4; witness veto on the BC2S3 pool) |
 | joint site set | union of the families' segregating sites (51,544) | union of the donors' tier-A sites (82,840) + gap filling |
-| JLM matrix | the five families' markers combined (51,544 SNPs), genotypes coded 0 = homozygous W22, 1 = heterozygous, 2 = homozygous non-W22; missing genotypes imputed from flanking markers; 4,578 markers | each donor's RTIGER mosaic projected onto a 0.1 cM grid: the union markers placed on the TeoNAM v5 map and thinned to markers at least 0.1 cM apart (exact 1-D maximum independent set, Jena et al. 2018). Not built yet. |
+| JLM matrix | the five families' markers combined (51,544 SNPs); genotypes coded<br>0 = homozygous W22<br>1 = heterozygous<br>2 = homozygous non-W22<br>missing genotypes imputed from flanking markers; 4,578 markers | each donor's RTIGER mosaic projected onto a 0.1 cM grid: the union markers placed on the TeoNAM v5 map and thinned to markers at least 0.1 cM apart (exact 1-D maximum independent set, Jena et al. 2018). Not built yet. |
 | GWAS matrix | FSFHap-imputed genotypes per family (BC1 backcross route; 118,838 SNPs) | the PHG-imputed genotypes at the union sites (not built yet) |
 
 ## 6. Open questions
