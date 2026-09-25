@@ -119,9 +119,10 @@ of depth; line realign ~10 min per line (array). A full donor prep is about 4 h.
 | 10 | PHG genotype raster | each line's genotype at every union site from its PHG path + the donor's allele: not called → NA; B73/B73 → 0; carries H_d at a donor ALT / REF / missing site → 1 or 2 / 0 / NA (the GWAS matrix) | `PHG/bin/phg_genotype_raster.R` |
 | 11 | Painting | per line: RTIGER, bbnil BC2S2, PHG ancestry (ranges; no-calls filled from the flanks), PHG genotype (raster at the donor's ALT and missing sites, runs merged, NA blank); B73 check pinned on top; label = NIL id + skim coverage (`WGSmetrics_summary.tsv`, old batch-1 BAMs) | `PHG/analysis/paint_rtiger_phg.R` |
 
-Results on hazel: `ZEAL/results/bench_zx0540_chr10/`, `bench_zx0570_chr10/` (prep + discovery) and `union_zx0540_zx0570_chr10/`
-(union, count once, founders, PHG, RTIGER, paintings). Runs before the CRISP fix are kept in `discovery/<donor>_preBEDfix/` and
-`union_zx0540_zx0570_chr10/preBEDfix/`.
+Results on hazel: `ZEAL/results/bench_zx0540_chr10/`, `bench_zx0570_chr10/` (prep + discovery) and `union_zx0540_zx0570_chr10/`:
+`counts/` (count once, gap filling), `phg/` (founders + PHG), `phg_Nmask/` (founders with donor-missing sites masked N; same paths),
+`phg_gt/` (PHG genotype raster = GWAS matrix), `rtiger/`, `bbnil/`, `b73check/`, `paintings/`. Runs before the CRISP fix are kept in
+`discovery/<donor>_preBEDfix/` and `union_zx0540_zx0570_chr10/preBEDfix/`.
 
 ## 3. Results
 
