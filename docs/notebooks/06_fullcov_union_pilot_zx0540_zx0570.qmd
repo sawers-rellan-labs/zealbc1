@@ -51,7 +51,7 @@ TeoNAM ([Chen et al. 2019, *Genetics* 213:1065](https://academic.oup.com/genetic
 
 **Distortion.** TeoNAM has excess HET, too little homozygous donor and an excess of the recurrent parent, in every family:
 
-| | recurrent (W22 / B73) | HET | TEO |
+| | W22 (recurrent) | HET | TEO |
 |---|---|---|---|
 | TeoNAM BC1S4 expected | 73.4 % | 3.1 % | 23.4 % |
 | TeoNAM observed | 76.6 % | 8.1 % (2.6× expected) | 15.0 % (0.64×) |
