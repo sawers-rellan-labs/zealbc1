@@ -265,11 +265,6 @@ pools of BC1 plants here).
 | JLM matrix | the per-family ancestry mosaics projected onto the union of segregating sites (flank interpolation where both flanks agree; 4,578 markers) | each donor's RTIGER mosaic projected onto a 0.1 cM grid: the union markers placed on the TeoNAM v5 map and thinned to markers at least 0.1 cM apart (exact 1-D maximum independent set, Jena et al. 2018). Not built yet. |
 | GWAS matrix | FSFHap-imputed genotypes per family (BC1 backcross route; 118,838 SNPs) | the PHG-imputed genotypes at the union sites (not built yet) |
 
-**FSFHap on these lines.** nilHMM's `fsfhap` caller was run per donor (lines = one family, design BC2S2) and returned no states. That is
-the documented behaviour, not a bug (`nilhmm/design/FSFHAP_PORT.md`): TASSEL takes the backcross route only for a recurrent contribution of
-0.75 (BC1), so BC2 falls through to `BiparentalHaplotypeFinder`, which needs two balanced full-sib clusters per window and is documented as
-"inappropriate for NILs" (> 90 % of the genome homozygous recurrent in every line; no seed window). TeoNAM works because it is BC1.
-
 ## 6. Open questions
 
 1. Reference bias or missing sites: per range, count founder holes and compare ranges where PHG disagrees with RTIGER inside introgressions
