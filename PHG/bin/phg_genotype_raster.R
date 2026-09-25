@@ -16,7 +16,7 @@ a <- commandArgs(TRUE); if (length(a) < 5) stop("usage: phg_genotype_raster.R <p
 PPAR <- a[1]; DHD <- a[2]; BED <- a[3]; D <- a[4]; OUT <- a[5]; CHRLEN <- 152435371L; dir.create(OUT, showWarnings = FALSE, recursive = TRUE)
 
 bed <- fread(BED, header = FALSE, select = 1:3, col.names = c("chr", "s", "e"))[chr == "chr10"][order(s)]; bed[, rid := .I]
-dh <- fread(DHD, select = c("chrom", "pos", "ref", "alt", paste0(D, "_state_bayes")))
+dh <- fread(cmd = paste("zcat", shQuote(DHD)), select = c("chrom", "pos", "ref", "alt", paste0(D, "_state_bayes")))   # zcat: the nilhmm env has no R.utils
 setnames(dh, paste0(D, "_state_bayes"), "dstate"); dh <- dh[chrom == "chr10"]
 multi <- dh[, .N, by = pos][N > 1, pos]; dh[pos %in% multi, dstate := NA]                  # two union alleles at a position -> missing
 dh[, rid := { i <- findInterval(pos - 1L, bed$s); ok <- i > 0 & (pos <= bed$e[pmax(i, 1L)]); fifelse(ok, i, NA_integer_) }]
