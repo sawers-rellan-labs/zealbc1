@@ -251,7 +251,8 @@ of maize alleles as a feature of all subpopulations.
 **Side by side.** Informative here means informative for a biparental cross: a site is informative for a family if it is polymorphic
 between the parental gametes (the recurrent parent vs the donor haplotype H_d). A site can be variant at the level of the joint population
 (all ZEAL NILs) and still be non-informative for a given donor; in the union, such sites are the donor's gap REF calls. This matches TeoNAM's
-segregating sites (a site segregating within a family is polymorphic between its parents); only where it is measured differs.
+segregating sites (a site segregating within a family is polymorphic between its parents); both are measured on progeny (RILs in TeoNAM,
+pools of BC1 plants here).
 
 
 | | TeoNAM | ZEAL (this pilot) |
@@ -259,7 +260,7 @@ segregating sites (a site segregating within a family is polymorphic between its
 | samples | individual diploid RILs | 6-plant pools (BC1 samples and BC2S3 lines) |
 | variant discovery | external panel, done beforehand (ZeaGBSv2.7 TOPM, 955,690 SNPs) | per donor, from these reads (CRISP on the BC1 pools + BC2S3 pool) |
 | per-sample data at each site | a hard genotype call (0 / 1 / 2 or missing, from TASSEL-GBS) | REF and ALT read counts; no genotype is called (step 4, gap filling and RTIGER work on the counts) |
-| informative sites (segregating sites in a biparental cross) | measured on the progeny: sites segregating within the family (MAF ≥ 5 % per subpopulation) | measured on the donor's gametes: tier A = H_d carries ALT where B73 is REF (step 4, from the donor's BC1 pools) |
+| informative sites (segregating sites in a biparental cross) | sites segregating within the family's RILs (MAF ≥ 5 % per subpopulation, on the TASSEL-GBS calls) | sites segregating within the donor's BC1 samples: tier A in step 4 (ALT reads at the BC1 dosage, in ≥ 2 BC1 samples, absent from B73) |
 | joint site set | union of the families' segregating sites (51,544) | union of the donors' tier-A sites (82,840) |
 | alleles at the other families' / donors' sites | called jointly on all samples at the discovered SNPs (TASSEL-GBS); leftover JLM gaps filled by flank interpolation in ancestry coding | union + gap filling: each donor's allele at the other donors' sites from its own reads (count once), the other donor as the prior for ALT |
 | JLM matrix | the per-family ancestry mosaics projected onto the union of segregating sites (flank interpolation where both flanks agree; 4,578 markers) | each donor's RTIGER mosaic projected onto a 0.1 cM grid: the union markers placed on the TeoNAM v5 map and thinned to markers at least 0.1 cM apart (exact 1-D maximum independent set, Jena et al. 2018). Not built yet. |
