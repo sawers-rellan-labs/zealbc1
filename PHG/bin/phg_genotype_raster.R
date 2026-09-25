@@ -6,8 +6,8 @@
 #   carries H_d (HET 1 / TEO 2), donor ALT        -> 1 / 2
 #   carries H_d, donor REF                        -> 0
 #   carries H_d, donor missing (or multi-allelic) -> NA
-# Outputs (OUTDIR): gt_<donor>_chr10.tsv.gz (name pos ref alt gt; all union sites) and a painting track seg_<donor>_chr10.csv: the raster at
-# the donor's ALT and missing sites, runs of one value merged (boundaries at site midpoints), NA runs dropped (blank in the painting).
+# Outputs (OUTDIR): gt_<donor>_chr10.tsv.gz (name pos ref alt gt; all union sites) and a painting track seg_<donor>_chr10.csv: the same raster
+# at ALL union sites (the genotypes as they go into the GWAS matrix), runs of one value merged (boundaries at site midpoints), NA runs dropped.
 # Usage: phg_genotype_raster.R <parents_dir> <dhd_bayes_chr10.tsv.gz> <lowcopy.bed> <donor> <outdir>
 suppressPackageStartupMessages(library(data.table))
 .bin <- dirname(sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE)[1]))
@@ -39,7 +39,7 @@ gt <- rbindlist(lapply(seq_along(files), function(k) {
 fwrite(gt[, .(name, pos, ref, alt, gt)], file.path(OUT, paste0("gt_", D, "_chr10.tsv.gz")), sep = "\t", na = "NA", quote = FALSE)
 log_info("[phg_gt] genotypes: %s", paste(names(table(gt$gt, useNA = "ifany")), table(gt$gt, useNA = "ifany"), sep = "=", collapse = " "))
 
-tr <- gt[dstate %in% 1L | is.na(dstate)][order(name, pos)]                                 # painting track: donor ALT + missing sites
+tr <- gt[order(name, pos)]                                                                 # painting track: all union sites
 seg <- tr[, { mk <- pos; mid <- c(0L, as.integer((mk[-1] + mk[-length(mk)]) / 2), CHRLEN); r <- rle(ifelse(is.na(gt), -1L, gt))
               e <- cumsum(r$lengths); s <- c(1L, head(e, -1) + 1L)
               data.table(start_bp = mid[s], end_bp = mid[e + 1L], state = r$values)[state >= 0L] }, by = name]
