@@ -6,7 +6,8 @@ One reference block per range of --bed (the lowcopy ranges), split at the union 
   NA (missing), and positions with two union alleles (multi-allelic) -> no record: the block is split around the site (no call there)
 PHG builds a founder haplotype only from the stretches that have gVCF records (gvcf2hvcf), so the blocks make it full-length (user
 2026-09-24; records only at the sites gave ~15-bp haplotypes and zero donor calls, job 949013). Record format = pilot_step5_donor_gvcf.py's.
-Also writes <out>.alt.tsv (chrom pos ref alt) for the pseudo-assembly (bcftools consensus).
+Also writes <out>.alt.tsv (chrom pos ref alt) for the pseudo-assembly (bcftools consensus) and <out>.missing.bed (0-based, the missing and
+multi-allelic sites) so the pseudo-assembly carries N there (bcftools consensus --mask), not the B73 base.
 Usage: union_founder_gvcf.py --dhd dhd_bayes_chr10.tsv.gz --donor Zx.0570_P2 --bed union_chr10.bed --fai B73.fa.fai --out D.g.vcf [--chrom chr10] [--depth 8] [--name NAME]"""
 import argparse, gzip, bisect, collections
 ap = argparse.ArgumentParser()
@@ -59,5 +60,7 @@ with open(A.out, 'w') as o, open(A.out + '.alt.tsv', 'w') as t:
             cur = p + 1; placed += 1
         if cur <= e: block(o, cur, e)
     n['outside'] = len(events) - placed
+with open(A.out + '.missing.bed', 'w') as mb:
+    for p in sorted(miss): mb.write(f"{A.chrom}\t{p - 1}\t{p}\n")
 print(f"[union_founder] {NAME}: union positions {len(state)} | ALT {len(alt)} (records {n['alt']}) | REF {len(ref)} (inside blocks) | "
       f"missing {len(miss)} (holes {n['holes']}) | ranges {len(iv)} | ref blocks {n['ref_blocks']} | ALT/missing outside the ranges {n['outside']}")
