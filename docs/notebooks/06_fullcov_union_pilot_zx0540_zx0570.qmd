@@ -75,7 +75,7 @@ pools of BC1 plants here).
 | informative sites (segregating sites in a biparental cross) | sites segregating within the family's RILs (MAF ≥ 5 % per subpopulation, on the TASSEL-GBS calls) | sites segregating within the donor's BC1 samples and among its BC2S3 samples (tier A in step 4; witness veto on the BC2S3 pool) |
 | joint site set | union of the families' segregating sites (51,544) | union of the donors' tier-A sites + gap filling (sizes in §3.2) |
 | JLM matrix | the five families' markers combined (51,544 SNPs); genotypes coded<br>0 = homozygous W22<br>1 = heterozygous<br>2 = homozygous non-W22<br>missing genotypes imputed from flanking markers; 4,578 markers | each donor's RTIGER mosaic projected onto a 0.1 cM grid: the union markers placed on the TeoNAM v5 map and thinned to markers at least 0.1 cM apart (exact 1-D maximum independent set, Jena et al. 2018). Not built yet. |
-| GWAS matrix | FSFHap-imputed genotypes per family (BC1 backcross route; 118,838 SNPs) | the PHG-imputed genotypes at the union sites (not built yet) |
+| GWAS matrix | FSFHap-imputed genotypes per family (BC1 backcross route; 118,838 SNPs) | the PHG-imputed genotypes at the union sites, NA where the donor's allele is missing or PHG made no call (chr10 pilot built, §3.6) |
 
 ## 2. Setup
 
@@ -111,12 +111,13 @@ of depth; line realign ~10 min per line (array). A full donor prep is about 4 h.
 | 2 | Union | tier-A sites of both donors | `PHG/bin/union_sites.py` |
 | 3 | Count once | read counts at every union site in the 10 BC1 samples + 2 B73 pools → joint step 4 | `count_union_sample.sbatch`, `count_once_step4.sbatch` |
 | 4 | Gap filling | own sites ALT; gap sites REF if the donor's reads say tier ref, ALT if posterior ≥ 0.999 with the other donor as the prior, else missing | `PHG/bin/dhd_bayes.py` |
-| 5 | Union founder | gVCF: one reference block per lowcopy range, split at ALT records, no record at missing sites (§4.2) → pseudo-assembly (B73 + ALT) | `PHG/bin/union_founder_gvcf.py` |
+| 5 | Union founder | gVCF: one reference block per lowcopy range, split at ALT records, no record at missing sites (§4.2) → pseudo-assembly (B73 + ALT; donor-missing sites masked N) | `PHG/bin/union_founder_gvcf.py` |
 | 6 | PHG | pairwise graph (B73 + the donor's founder), the donor's lines only; find-paths diploid, F = 0, stay 0.99999, min-reads 1 | `PHG/bin/union_founder_phg.sbatch` |
 | 7 | RTIGER | per-line pileup at the donor's own tier-A sites, sites with no ALT read across lines dropped, rigidity 500; no design prior (§4.3) | `PHG/bin/rtiger_ancestry_inference.sbatch` |
 | 8 | bbnil | same per-line counts as RTIGER; design BC2S2; rrate = 4.72 × L_chr10 / n_markers, L_chr10 = 1.359 M (nilHMM TeoNAM v5 map) → 0.000127 (Zx.0570_P2, 50,308 markers), 0.000168 (Zx.0540_P3, 38,287) | `PHG/bin/bbnil_lines.R` |
 | 9 | B73 check | PN10_SID893 (batch-1 B73 control, 0.57x, realigned): RTIGER decoded with the lines' fit, bbnil with the lines' rrate, PHG on the same founder — the lines' results unchanged | `PHG/bin/rtiger_bbnil_check.R`, `union_founder_phg.sbatch` |
-| 10 | Painting | per line: RTIGER, bbnil BC2S2, PHG; B73 check pinned on top; label = NIL id + skim coverage (`WGSmetrics_summary.tsv`, old batch-1 BAMs) | `PHG/analysis/paint_rtiger_phg.R` |
+| 10 | PHG genotype raster | each line's genotype at every union site from its PHG path + the donor's allele: not called → NA; B73/B73 → 0; carries H_d at a donor ALT / REF / missing site → 1 or 2 / 0 / NA (the GWAS matrix) | `PHG/bin/phg_genotype_raster.R` |
+| 11 | Painting | per line: RTIGER, bbnil BC2S2, PHG ancestry (ranges; no-calls filled from the flanks), PHG genotype (raster at the donor's ALT and missing sites, runs merged, NA blank); B73 check pinned on top; label = NIL id + skim coverage (`WGSmetrics_summary.tsv`, old batch-1 BAMs) | `PHG/analysis/paint_rtiger_phg.R` |
 
 Results on hazel: `ZEAL/results/bench_zx0540_chr10/`, `bench_zx0570_chr10/` (prep + discovery) and `union_zx0540_zx0570_chr10/`
 (union, count once, founders, PHG, RTIGER, paintings). Runs before the CRISP fix are kept in `discovery/<donor>_preBEDfix/` and
@@ -191,15 +192,27 @@ no generation prior (§4.3); bbnil uses the BC2S2 prior.
 
 PHG's HET ranges on the check fall at the same positions as the recurring HET spikes in the lines that RTIGER calls all B73.
 
-### 3.6 Paintings
+### 3.6 PHG genotype raster (jobs 952517, 952519)
 
-![Zx.0570_P2, chr10, 44 lines + B73 check (top): RTIGER / bbnil BC2S2 / PHG; label = NIL id + skim coverage (local copy).](../../agent/paintings/Zx.0570_P2_chr10_RTIGER_bbnil_PHG.png)
+All 82,706 union sites × lines (B73 check included). The N-masked founders (§4.2) give PHG paths identical to the unmasked ones (84 of 84
+lines byte-identical); the mask only protects anything read off the founder sequence.
 
-![Zx.0540_P3, chr10, 40 lines + B73 check (top; PN6_SID484 = Zx05403352, PHG only): RTIGER / bbnil BC2S2 / PHG; label = NIL id + skim coverage (local copy).](../../agent/paintings/Zx.0540_P3_chr10_RTIGER_bbnil_PHG.png)
+| donor | lines | 0 | 1 (HET) | 2 (TEO) | NA |
+|---|---|---|---|---|---|
+| Zx.0570_P2 | 44 + B73 check | 3,020,768 | 296,177 | 74,761 | 330,064 (8.9 %) |
+| Zx.0540_P3 | 40 + B73 check | 2,607,703 | 284,369 | 66,899 | 431,975 (12.7 %) |
+
+### 3.7 Paintings
+
+![Zx.0570_P2, chr10, 44 lines + B73 check (top): RTIGER / bbnil BC2S2 / PHG ancestry / PHG genotype; label = NIL id + skim coverage (local copy).](../../agent/paintings/Zx.0570_P2_chr10_RTIGER_bbnil_PHGanc_PHGgt.png)
+
+![Zx.0540_P3, chr10, 40 lines + B73 check (top; PN6_SID484 = Zx05403352, PHG only): RTIGER / bbnil BC2S2 / PHG ancestry / PHG genotype; label = NIL id + skim coverage (local copy).](../../agent/paintings/Zx.0540_P3_chr10_RTIGER_bbnil_PHGanc_PHGgt.png)
 
 What the paintings show:
 
 - The callers agree on which lines carry introgressions and where.
+- The PHG genotype lane shows the missing data the ancestry lane hides: white stripes inside the introgressions where the donor's allele
+  is missing, and at PHG's no-call ranges everywhere else. The B73 check's genotype lane is B73 with gaps.
 - bbnil follows RTIGER's introgressions but, like PHG, breaks them into short HET / B73 and TEO / HET pieces, and calls some HET or TEO
   in every line.
 - Inside RTIGER's TEO segments (e.g. Zx05702132, Zx05702411, Zx05403561) PHG alternates TEO, HET and B73; inside RTIGER's HET segments
