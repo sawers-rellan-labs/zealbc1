@@ -30,7 +30,9 @@ python3 "$C/PHG/bin/union_founder_gvcf.py" --dhd "$DHD" --donor "$DONOR" --name 
 bgzip -f "gvcf/$FN.g.vcf"; bcftools index -f -c "gvcf/$FN.g.vcf.gz"; mv -f "gvcf/$FN.g.vcf.alt.tsv" "asm/raw/$FN.alt.tsv"; mv -f "gvcf/$FN.g.vcf.missing.bed" "asm/raw/$FN.missing.bed"
 awk -v d="$FN" 'BEGIN{OFS="\t"; print "##fileformat=VCFv4.2"; print "##contig=<ID=chr10,length=152435371>"; print "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">"; print "#CHROM","POS","ID","REF","ALT","QUAL","FILTER","INFO","FORMAT",d} {print $1,$2,".",$3,$4,".",".",".","GT","1"}' "asm/raw/$FN.alt.tsv" | bgzip -c > "asm/raw/$FN.alt.vcf.gz"
 tabix -f -p vcf "asm/raw/$FN.alt.vcf.gz"
-bcftools consensus -f "$REF10" -s "$FN" --mask "asm/raw/$FN.missing.bed" --mask-with N "asm/raw/$FN.alt.vcf.gz" 2> asm/raw/consensus.log   # donor-missing sites -> N | sed "1s/.*/>${FN}_chr10/" > "asm/raw/${FN}_raw.fa"
+# donor-missing (and multi-allelic) sites -> N in the pseudo-assembly, not the B73 base
+bcftools consensus -f "$REF10" -s "$FN" --mask "asm/raw/$FN.missing.bed" --mask-with N "asm/raw/$FN.alt.vcf.gz" 2> asm/raw/consensus.log | sed "1s/.*/>${FN}_chr10/" > "asm/raw/${FN}_raw.fa"
+[ -s "asm/raw/${FN}_raw.fa" ] || { echo "empty pseudo-assembly" >&2; exit 1; }
 echo "founder alleles: $(wc -l < asm/raw/$FN.alt.tsv) | missing sites masked N: $(wc -l < asm/raw/$FN.missing.bed) | N in assembly: $(grep -v ">" asm/raw/${FN}_raw.fa | tr -cd N | wc -c) | $(tail -1 asm/raw/consensus.log)"
 
 echo "== [2] chr10 read pairs of $(wc -l < "$LINES_LIST") lines  $(date)"
