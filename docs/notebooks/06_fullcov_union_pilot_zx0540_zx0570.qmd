@@ -250,6 +250,10 @@ that built the blocks from the donor's covered stretches (`covered_blocks.sh`, n
 
 Consequence: a range without an ALT site has a founder haplotype identical to B73, and PHG reports it as no call.
 
+The pseudo-assembly (`bcftools consensus` on B73) first carried the B73 base at the donor's missing sites, so anything read off the
+founder sequence would have turned them into REF. They are now masked N (`--mask`; 9,079 and 11,819 sites). PHG paths do not change
+(`gvcf2hvcf` already leaves those positions out of the founder haplotype).
+
 ### 4.3 RTIGER in nilHMM takes no breeding-design prior
 
 The `rtiger` caller in nilHMM (0.3.0, and the source at `96d5c48`) has only `rigidity`, `seed`, starting emission values, `threads` and
