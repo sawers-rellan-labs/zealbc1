@@ -8,7 +8,8 @@ suppressPackageStartupMessages({ library(nilHMM); library(data.table); library(g
 a <- commandArgs(TRUE); R3 <- a[1]; PPAR <- a[2]; PHV <- a[3]; FN <- a[4]; LAB <- a[5]; out <- a[6]; TTL <- a[7]; BB <- if (length(a) >= 8 && a[8] != "NA") a[8] else NA; COV <- if (length(a) >= 9 && a[9] != "NA") a[9] else NA; CHRLEN <- 152435371L
 rt <- function(f, m) { x <- fread(f); setnames(x, tolower(names(x))); x[chr == 10, .(name, chr = 10L, start_bp, end_bp, state, method = m)] }
 r3 <- rt(R3, "RTIGER")
-bb <- if (!is.na(BB)) { x <- fread(BB); lab <- sub("^bbnil_", "bbnil ", x$source[1]); x[chr == 10, .(name, chr = 10L, start_bp, end_bp, state, method = lab)] } else NULL
+bb <- if (!is.na(BB)) { x <- fread(BB); lab <- "bbnil";   # prior/design stays in the tables and text, not in the lane label
+  x[chr == 10, .(name, chr = 10L, start_bp, end_bp, state, method = lab)] } else NULL
 lines <- sort(union(unique(r3$name), sub("_imputed_parents\\.txt$", "", list.files(PPAR, pattern = "_imputed_parents\\.txt$"))))   # lines without RTIGER calls keep their PHG lane
 hvhap <- function(f) { l <- grep("^#", readLines(f), invert = TRUE, value = TRUE); x <- strsplit(l, "\t")
   data.table(start = as.integer(sapply(x, `[`, 2)), hapid = gsub("[<>]", "", sapply(x, `[`, 5))) }
