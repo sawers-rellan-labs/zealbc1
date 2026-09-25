@@ -30,194 +30,7 @@ results as of 2026-09-24. Earlier workbooks (01–05) cover the design and the d
   no breeding-design prior (sawers-rellan-labs/nilhmm#27), so RTIGER here has no generation prior.
 :::
 
-## 1. Setup
-
-### 1.1 Donors
-
-Both donors were chosen because the QC-set benchmark (design B) has 5 BC1 pools per founder; donors with fewer BC1 samples serve only the
-coverage-mixing question (other session). Every sequenced sample is a pool of 6 plants: a BC1 sample is 6 BC1 plants of one donor family,
-and each BC2S3 line (0.4x skim, batch 1) is a pool too.
-
-| donor | taxon | BC1 samples (depth) | BC1 total | BC2S3 lines (0.4x) | 1.2x lines |
-|---|---|---|---|---|---|
-| **Zx.0540_P3** | mexicana | S_2A_3 (11.8x), S_2A_11 (5.5x), S_2B_8 (12.5x), S_2F_1 (8.5x), S_2F_12 (4.9x) | 43.2x | 40 NILs (PN5_SID464–480, PN6_SID481–505) | none |
-| **Zx.0570_P2** | mexicana | S_2H_1 (11.9x), S_3B_11 (6.9x), S_3C_9 (9.2x), S_3D_8 (8.0x), S_3E_7 (7.7x) | 43.7x | 44 NILs (PN8_SID733–768, PN9_SID769–778) | none |
-
-Zx.0570_P2 was picked over Zx.0580_P2 as the second donor because its number of NILs (44) is closer to Zx.0540_P3's (40). Two libraries
-are very small: PN6_SID484 (Zx.0540_P3, 51,739 read pairs) and PN8_SID736 (Zx.0570_P2, 153,093 pairs).
-
-### 1.2 Data preparation
-
-| step | what | script | jobs |
-|---|---|---|---|
-| BC1 demux + align | DEMUX of the donors' pools, ALIGN of the 5 samples only (minibwa -x sr, MAPQ 20, CRAM) | `nilhmm/q_nilhmm_pool_run.sh` (POOLS/SAMPLES scoped) | 935092 (2A 2B 2F), 945148 (2H 3B–3E) |
-| line realign | batch-1 trimmed FASTQs → minibwa, MAPQ 20, CRAM | `PHG/bin/bc2s3_realign.sbatch` | 935093 (40), 945149 (44) |
-
-Measured times: DEMUX of a 94–140 GB pool 53–72 min (pools in parallel); BC1 ALIGN 56 min – 2 h 39 min at 8 CPUs, about 12–13 min per 1x
-of depth; line realign ~10 min per line (array). A full donor prep is about 4 h.
-
-### 1.3 Pipeline (chr10)
-
-| # | step | what | script |
-|---|---|---|---|
-| 1 | Discovery | BC2S3 artificial pool (all the donor's lines, one RG) → CRISP on the 5 BC1 samples + the pool (lowcopy BED, `-p 12 --sm 0 --mmq 20 --filterreads 0 --minc 2`) → records outside the BED dropped (§3.1) → witness veto (≥ 1 ALT read in the pool) → B73 pools (NCBI ERR3288215 + check pool skim10) counted at the kept sites (`mpileup -I`) → step 4 (LLR tiers; B73 pools = zero class) | `PHG/bin/donor_discovery_chr10.sbatch` |
-| 2 | Union | tier-A sites of both donors | `PHG/bin/union_sites.py` |
-| 3 | Count once | read counts at every union site in the 10 BC1 samples + 2 B73 pools → joint step 4 | `count_union_sample.sbatch`, `count_once_step4.sbatch` |
-| 4 | Gap filling | own sites ALT; gap sites REF if the donor's reads say tier ref, ALT if posterior ≥ 0.999 with the other donor as the prior, else missing | `PHG/bin/dhd_bayes.py` |
-| 5 | Union founder | gVCF: one reference block per lowcopy range, split at ALT records, no record at missing sites (§3.2) → pseudo-assembly (B73 + ALT) | `PHG/bin/union_founder_gvcf.py` |
-| 6 | PHG | pairwise graph (B73 + the donor's founder), the donor's lines only; find-paths diploid, F = 0, stay 0.99999, min-reads 1 | `PHG/bin/union_founder_phg.sbatch` |
-| 7 | RTIGER | per-line pileup at the donor's own tier-A sites, sites with no ALT read across lines dropped, rigidity 500; no design prior (§3.3) | `PHG/bin/rtiger_ancestry_inference.sbatch` |
-| 8 | bbnil | same per-line counts as RTIGER; design BC2S2; rrate = 4.72 × L_chr10 / n_markers, L_chr10 = 1.359 M (nilHMM TeoNAM v5 map) → 0.000127 (Zx.0570_P2, 50,308 markers), 0.000168 (Zx.0540_P3, 38,287) | `PHG/bin/bbnil_lines.R` |
-| 9 | B73 check | PN10_SID893 (batch-1 B73 control, 0.57x, realigned): RTIGER decoded with the lines' fit, bbnil with the lines' rrate, PHG on the same founder — the lines' results unchanged | `PHG/bin/rtiger_bbnil_check.R`, `union_founder_phg.sbatch` |
-| 10 | Painting | per line: RTIGER, bbnil BC2S2, PHG; B73 check pinned on top; label = NIL id + skim coverage (`WGSmetrics_summary.tsv`, old batch-1 BAMs) | `PHG/analysis/paint_rtiger_phg.R` |
-
-Results on hazel: `ZEAL/results/bench_zx0540_chr10/`, `bench_zx0570_chr10/` (prep + discovery) and `union_zx0540_zx0570_chr10/`
-(union, count once, founders, PHG, RTIGER, paintings). Runs before the CRISP fix are kept in `discovery/<donor>_preBEDfix/` and
-`union_zx0540_zx0570_chr10/preBEDfix/`.
-
-## 2. Results
-
-### 2.1 Discovery (after the CRISP fix; jobs 949447, 949448)
-
-| donor | CRISP records in BED | dropped past range ends | kept by veto | step-4 sites | A | B | C | ref |
-|---|---|---|---|---|---|---|---|---|
-| Zx.0540_P3 | 90,393 | 18 | 65,385 | 56,665 | 40,941 | 10,818 | 3,002 | 213 |
-| Zx.0570_P2 | 132,505 | 31 | 86,593 | 75,434 | 54,395 | 14,599 | 4,192 | 185 |
-
-The fix changed tier A by −7 and −11 sites; B, C and ref by at most 5.
-
-### 2.2 Union, count once and gap filling (jobs 949610–949612)
-
-The union holds 82,840 alleles at 82,773 positions (67 multi-allelic); 12,496 alleles are tier A in both donors and 70,344 in one.
-In the joint step 4, the two B73 pools come out tier A at 48 sites and tier ref at 60,974.
-
-| donor | own ALT | gaps (union sites it lacks) | gap → ALT | gap → REF | gap → missing |
-|---|---|---|---|---|---|
-| Zx.0540_P3 | 40,874 | 41,832 | 17,517 | 12,496 | 11,819 |
-| Zx.0570_P2 | 54,328 | 28,378 | 7,768 | 11,531 | 9,079 |
-
-### 2.3 Union founders and PHG (jobs 949613, 949614)
-
-| donor | founder ALT | REF (inside blocks) | missing (holes) | ranges with a founder haplotype |
-|---|---|---|---|---|
-| Zx.0540_P3 | 58,391 | 12,496 | 11,819 | 8,095 / 8,095 |
-| Zx.0570_P2 | 62,096 | 11,531 | 9,079 | 8,095 / 8,095 |
-
-PHG no-call: 24.0 % of ranges (Zx.0570_P2), 30.3 % (Zx.0540_P3). The two small libraries are mostly no-call: PN8_SID736 91 % (736 ranges
-called), PN6_SID484 97 % (220 ranges called, all B73).
-
-### 2.4 Genotype distributions against the single-locus expectation
-
-Expectation for one BC2 plant (heterozygous for the donor with probability 1/4), then selfing: HET halves each generation, the other half
-splits equally between the homozygotes. The TEO allele fraction is 12.5 % in both generations.
-
-**Zx.0570_P2** (44 lines, chr10)
-
-| | B73 | HET | TEO | TEO allele fraction | lines with TEO calls |
-|---|---|---|---|---|---|
-| PHG (share of called ranges) | 87.9 % | 10.2 % | 1.9 % | 7.0 % | 44 / 44 |
-| RTIGER | 86.8 % | 9.1 % | 4.1 % | 8.7 % | 16 / 44 |
-| bbnil BC2S2 | 88.3 % | 8.1 % | 3.6 % | 7.6 % | 44 / 44 |
-| BC2S2 expected | 84.4 % | 6.25 % | 9.4 % | 12.5 % | |
-| BC2S3 expected | 85.9 % | 3.1 % | 10.9 % | 12.5 % | |
-
-**Zx.0540_P3** (40 lines, chr10; RTIGER and bbnil on 39 lines, without PN6_SID484)
-
-| | B73 | HET | TEO | TEO allele fraction | lines with TEO calls |
-|---|---|---|---|---|---|
-| PHG (share of called ranges) | 86.4 % | 11.2 % | 2.4 % | 8.0 % | 39 / 40 |
-| RTIGER | 84.9 % | 8.5 % | 6.6 % | 10.8 % | 20 / 39 |
-| bbnil BC2S2 | 85.8 % | 8.8 % | 5.4 % | 9.8 % | 39 / 39 |
-| BC2S2 expected | 84.4 % | 6.25 % | 9.4 % | 12.5 % | |
-| BC2S3 expected | 85.9 % | 3.1 % | 10.9 % | 12.5 % | |
-
-RTIGER and bbnil shares are of chr10 bp (bbnil segments cover 98.8–98.9 % of chr10 × lines); PHG shares are of called ranges. RTIGER has
-no generation prior (§3.3); bbnil uses the BC2S2 prior.
-
-### 2.5 B73 check
-
-| B73 check PN10_SID893 (0.57x) | Zx.0570_P2 graph | Zx.0540_P3 graph |
-|---|---|---|
-| RTIGER | all B73 (1 segment) | all B73 (1 segment) |
-| bbnil BC2S2 | 100.0 % B73 (HET / TEO pieces < 0.05 %) | 100.0 % B73 |
-| PHG | HET in 45 of 6,881 called ranges (0.7 %); no-call 15 % | HET in 56 of 6,875 (0.8 %); no-call 15 % |
-
-PHG's HET ranges on the check fall at the same positions as the recurring HET spikes in the lines that RTIGER calls all B73.
-
-### 2.6 Paintings
-
-![Zx.0570_P2, chr10, 44 lines + B73 check (top): RTIGER / bbnil BC2S2 / PHG; label = NIL id + skim coverage (local copy).](../../agent/paintings/Zx.0570_P2_chr10_RTIGER_bbnil_PHG.png)
-
-![Zx.0540_P3, chr10, 40 lines + B73 check (top; PN6_SID484 = Zx05403352, PHG only): RTIGER / bbnil BC2S2 / PHG; label = NIL id + skim coverage (local copy).](../../agent/paintings/Zx.0540_P3_chr10_RTIGER_bbnil_PHG.png)
-
-What the paintings show:
-
-- The callers agree on which lines carry introgressions and where.
-- bbnil follows RTIGER's introgressions but, like PHG, breaks them into short HET / B73 and TEO / HET pieces, and calls some HET or TEO
-  in every line.
-- Inside RTIGER's TEO segments (e.g. Zx05702132, Zx05702411, Zx05403561) PHG alternates TEO, HET and B73; inside RTIGER's HET segments
-  (e.g. Zx05702242, Zx05702131) PHG alternates HET and B73.
-- In lines RTIGER calls all B73, PHG shows short HET (occasionally TEO) spikes at the same positions across many lines — specific ranges,
-  not lines. The B73 check shows the same spikes (§2.5).
-- PHG counts a line as carrying TEO when a single range is called; RTIGER merges short calls at rigidity 500. That is why PHG reports TEO
-  calls in almost every line and RTIGER in about half.
-
-## 3. Problems found and fixed
-
-### 3.1 CRISP reads the BED end one base too far
-
-CRISP converts the BED start correctly (1-based `s+1`) but treats the end as inclusive in 0-based coordinates, so it also calls the base
-right after every range. Direct test: BED `chr10 105269 105270` (base 105,270 only) → CRISP reported 105,271. Across the 8,095 ranges,
-Zx.0570_P2's raw output had 29 records at range end + 1, near the density inside the ranges (36 at the first base), and 2 before the
-start. Source: `variantcalls.c` tests `k >= start && k <= end` with the raw BED values and a 0-based `k`.
-
-- **Fix** (`dc95eea`): right after CRISP, keep only records inside the true ranges (`bcftools view -T <bed>`), before veto, step 4,
-  union and RTIGER.
-- **Not fixed:** `PHG/qcset/variant_discovery.sbatch` (QC-set discovery) has the same CRISP call.
-- **Affected:** every step-4 table made before `dc95eea` and everything built on it. Both donors here were rerun.
-- Reported upstream: [vibansal/crisp#34](https://github.com/vibansal/crisp/issues/34). Recorded in `docs/DECISIONS.md` (2026-09-24).
-
-### 3.2 A union founder PHG could not use
-
-The plan specified the union founder as records only at the union sites (ALT at ALT, REF at REF, nothing at missing). PHG's `gvcf2hvcf`
-builds a founder haplotype only from the stretches that have gVCF records, so each haplotype became the recorded 1–2 bp pieces joined
-together (a 571-bp range gave ~15 bp). Only 5,179 of 8,095 ranges had a founder haplotype, and reads cannot match such sequences by
-k-mers: **zero TEO calls in all 44 Zx.0570_P2 lines** (job 949013, kept in `phg/Zx.0570_P2_records_only_949013/`).
-
-Fix (user decision): one reference block per lowcopy range, split at ALT records, no record at missing sites. Every range then has a
-full-length founder haplotype (B73 sequence with the donor's ALT alleles), and a missing site is the only base absent from it. A detour
-that built the blocks from the donor's covered stretches (`covered_blocks.sh`, not in the plan) was removed before any run.
-
-Consequence: a range without an ALT site has a founder haplotype identical to B73, and PHG reports it as no call.
-
-### 3.3 RTIGER in nilHMM takes no breeding-design prior
-
-The `rtiger` caller in nilHMM (0.3.0, and the source at `96d5c48`) has only `rigidity`, `seed`, starting emission values, `threads` and
-`postprocess`. Start probabilities and transitions are estimated from the data by EM; the number of states is fixed at 3. `design` is
-accepted by `call_states()` but silently dropped for `rtiger`. So RTIGER here has no generation prior, and a BC2S2-vs-BC2S3 comparison
-(plan step 7) cannot be run with it. Filed as [sawers-rellan-labs/nilhmm#27](https://github.com/sawers-rellan-labs/nilhmm/issues/27):
-rtiger should take `design`, and until then should not accept it silently. The RTIGER scripts no longer pass `design` (`abc26df`).
-
-### 3.4 Smaller issues
-
-- **PN6_SID484** covers 253 markers; RTIGER requires 2 × rigidity = 1,000 per line and refuses the whole run. It was dropped from RTIGER
-  and keeps its PHG lane.
-- **Demux QC overwrite:** every pool run overwrites `results/demux_qc/demux_qc.tsv`; the donors' rows were saved to
-  `bench_*/demux_qc_*_20260924.tsv` before the next run.
-- **Slurm controller outage** 2026-09-23 20:40–20:53 (`scontrol ping` not responding; `sacct` still answered from the accounting database).
-
-## 4. Caveats
-
-- PHG shares are over called ranges (24–30 % no-call excluded); RTIGER shares are over bp. The paintings fill PHG no-call and
-  shared-haplotype ranges with the flanking ancestry (as in `paint_callers_introg.R`), which hides where PHG made no call.
-- The shortfall against the expectation cannot come from dilution across families: each donor's lines descend from one BC1 plant and
-  carry the same donor haplotype, so a site informative for the donor is informative in every line. Within a family the shortfall is
-  unexpected, unless PHG over-calls B73 (reference bias). RTIGER is also below the expectation, though closer.
-- The founder's missing sites (9,079 and 11,819) are holes in the founder haplotype. Whether PHG's B73 and HET calls inside RTIGER's
-  introgressions sit on ranges with more holes has not been tested.
-- chr10 only; one run per donor; the 1.2x data does not exist for these donors.
-
-## 5. Comparison with TeoNAM
+## 1. Teosinte NIL introgression pipeline background
 
 TeoNAM ([Chen et al. 2019, *Genetics* 213:1065](https://academic.oup.com/genetics/article/213/3/1065/5930618)): five teosinte × W22 families,
 1,257 BC1S4 RILs, genotyped by GBS as individual diploid plants.
@@ -264,6 +77,193 @@ pools of BC1 plants here).
 | joint site set | union of the families' segregating sites (51,544) | union of the donors' tier-A sites (82,840) + gap filling |
 | JLM matrix | the five families' markers combined (51,544 SNPs); genotypes coded<br>0 = homozygous W22<br>1 = heterozygous<br>2 = homozygous non-W22<br>missing genotypes imputed from flanking markers; 4,578 markers | each donor's RTIGER mosaic projected onto a 0.1 cM grid: the union markers placed on the TeoNAM v5 map and thinned to markers at least 0.1 cM apart (exact 1-D maximum independent set, Jena et al. 2018). Not built yet. |
 | GWAS matrix | FSFHap-imputed genotypes per family (BC1 backcross route; 118,838 SNPs) | the PHG-imputed genotypes at the union sites (not built yet) |
+
+## 2. Setup
+
+### 2.1 Donors
+
+Both donors were chosen because the QC-set benchmark (design B) has 5 BC1 pools per founder; donors with fewer BC1 samples serve only the
+coverage-mixing question (other session). Every sequenced sample is a pool of 6 plants: a BC1 sample is 6 BC1 plants of one donor family,
+and each BC2S3 line (0.4x skim, batch 1) is a pool too.
+
+| donor | taxon | BC1 samples (depth) | BC1 total | BC2S3 lines (0.4x) | 1.2x lines |
+|---|---|---|---|---|---|
+| **Zx.0540_P3** | mexicana | S_2A_3 (11.8x), S_2A_11 (5.5x), S_2B_8 (12.5x), S_2F_1 (8.5x), S_2F_12 (4.9x) | 43.2x | 40 NILs (PN5_SID464–480, PN6_SID481–505) | none |
+| **Zx.0570_P2** | mexicana | S_2H_1 (11.9x), S_3B_11 (6.9x), S_3C_9 (9.2x), S_3D_8 (8.0x), S_3E_7 (7.7x) | 43.7x | 44 NILs (PN8_SID733–768, PN9_SID769–778) | none |
+
+Zx.0570_P2 was picked over Zx.0580_P2 as the second donor because its number of NILs (44) is closer to Zx.0540_P3's (40). Two libraries
+are very small: PN6_SID484 (Zx.0540_P3, 51,739 read pairs) and PN8_SID736 (Zx.0570_P2, 153,093 pairs).
+
+### 2.2 Data preparation
+
+| step | what | script | jobs |
+|---|---|---|---|
+| BC1 demux + align | DEMUX of the donors' pools, ALIGN of the 5 samples only (minibwa -x sr, MAPQ 20, CRAM) | `nilhmm/q_nilhmm_pool_run.sh` (POOLS/SAMPLES scoped) | 935092 (2A 2B 2F), 945148 (2H 3B–3E) |
+| line realign | batch-1 trimmed FASTQs → minibwa, MAPQ 20, CRAM | `PHG/bin/bc2s3_realign.sbatch` | 935093 (40), 945149 (44) |
+
+Measured times: DEMUX of a 94–140 GB pool 53–72 min (pools in parallel); BC1 ALIGN 56 min – 2 h 39 min at 8 CPUs, about 12–13 min per 1x
+of depth; line realign ~10 min per line (array). A full donor prep is about 4 h.
+
+### 2.3 Pipeline (chr10)
+
+| # | step | what | script |
+|---|---|---|---|
+| 1 | Discovery | BC2S3 artificial pool (all the donor's lines, one RG) → CRISP on the 5 BC1 samples + the pool (lowcopy BED, `-p 12 --sm 0 --mmq 20 --filterreads 0 --minc 2`) → records outside the BED dropped (§4.1) → witness veto (≥ 1 ALT read in the pool) → B73 pools (NCBI ERR3288215 + check pool skim10) counted at the kept sites (`mpileup -I`) → step 4 (LLR tiers; B73 pools = zero class) | `PHG/bin/donor_discovery_chr10.sbatch` |
+| 2 | Union | tier-A sites of both donors | `PHG/bin/union_sites.py` |
+| 3 | Count once | read counts at every union site in the 10 BC1 samples + 2 B73 pools → joint step 4 | `count_union_sample.sbatch`, `count_once_step4.sbatch` |
+| 4 | Gap filling | own sites ALT; gap sites REF if the donor's reads say tier ref, ALT if posterior ≥ 0.999 with the other donor as the prior, else missing | `PHG/bin/dhd_bayes.py` |
+| 5 | Union founder | gVCF: one reference block per lowcopy range, split at ALT records, no record at missing sites (§4.2) → pseudo-assembly (B73 + ALT) | `PHG/bin/union_founder_gvcf.py` |
+| 6 | PHG | pairwise graph (B73 + the donor's founder), the donor's lines only; find-paths diploid, F = 0, stay 0.99999, min-reads 1 | `PHG/bin/union_founder_phg.sbatch` |
+| 7 | RTIGER | per-line pileup at the donor's own tier-A sites, sites with no ALT read across lines dropped, rigidity 500; no design prior (§4.3) | `PHG/bin/rtiger_ancestry_inference.sbatch` |
+| 8 | bbnil | same per-line counts as RTIGER; design BC2S2; rrate = 4.72 × L_chr10 / n_markers, L_chr10 = 1.359 M (nilHMM TeoNAM v5 map) → 0.000127 (Zx.0570_P2, 50,308 markers), 0.000168 (Zx.0540_P3, 38,287) | `PHG/bin/bbnil_lines.R` |
+| 9 | B73 check | PN10_SID893 (batch-1 B73 control, 0.57x, realigned): RTIGER decoded with the lines' fit, bbnil with the lines' rrate, PHG on the same founder — the lines' results unchanged | `PHG/bin/rtiger_bbnil_check.R`, `union_founder_phg.sbatch` |
+| 10 | Painting | per line: RTIGER, bbnil BC2S2, PHG; B73 check pinned on top; label = NIL id + skim coverage (`WGSmetrics_summary.tsv`, old batch-1 BAMs) | `PHG/analysis/paint_rtiger_phg.R` |
+
+Results on hazel: `ZEAL/results/bench_zx0540_chr10/`, `bench_zx0570_chr10/` (prep + discovery) and `union_zx0540_zx0570_chr10/`
+(union, count once, founders, PHG, RTIGER, paintings). Runs before the CRISP fix are kept in `discovery/<donor>_preBEDfix/` and
+`union_zx0540_zx0570_chr10/preBEDfix/`.
+
+## 3. Results
+
+### 3.1 Discovery (after the CRISP fix; jobs 949447, 949448)
+
+| donor | CRISP records in BED | dropped past range ends | kept by veto | step-4 sites | A | B | C | ref |
+|---|---|---|---|---|---|---|---|---|
+| Zx.0540_P3 | 90,393 | 18 | 65,385 | 56,665 | 40,941 | 10,818 | 3,002 | 213 |
+| Zx.0570_P2 | 132,505 | 31 | 86,593 | 75,434 | 54,395 | 14,599 | 4,192 | 185 |
+
+The fix changed tier A by −7 and −11 sites; B, C and ref by at most 5.
+
+### 3.2 Union, count once and gap filling (jobs 949610–949612)
+
+The union holds 82,840 alleles at 82,773 positions (67 multi-allelic); 12,496 alleles are tier A in both donors and 70,344 in one.
+In the joint step 4, the two B73 pools come out tier A at 48 sites and tier ref at 60,974.
+
+| donor | own ALT | gaps (union sites it lacks) | gap → ALT | gap → REF | gap → missing |
+|---|---|---|---|---|---|
+| Zx.0540_P3 | 40,874 | 41,832 | 17,517 | 12,496 | 11,819 |
+| Zx.0570_P2 | 54,328 | 28,378 | 7,768 | 11,531 | 9,079 |
+
+### 3.3 Union founders and PHG (jobs 949613, 949614)
+
+| donor | founder ALT | REF (inside blocks) | missing (holes) | ranges with a founder haplotype |
+|---|---|---|---|---|
+| Zx.0540_P3 | 58,391 | 12,496 | 11,819 | 8,095 / 8,095 |
+| Zx.0570_P2 | 62,096 | 11,531 | 9,079 | 8,095 / 8,095 |
+
+PHG no-call: 24.0 % of ranges (Zx.0570_P2), 30.3 % (Zx.0540_P3). The two small libraries are mostly no-call: PN8_SID736 91 % (736 ranges
+called), PN6_SID484 97 % (220 ranges called, all B73).
+
+### 3.4 Genotype distributions against the single-locus expectation
+
+Expectation for one BC2 plant (heterozygous for the donor with probability 1/4), then selfing: HET halves each generation, the other half
+splits equally between the homozygotes. The TEO allele fraction is 12.5 % in both generations.
+
+**Zx.0570_P2** (44 lines, chr10)
+
+| | B73 | HET | TEO | TEO allele fraction | lines with TEO calls |
+|---|---|---|---|---|---|
+| PHG (share of called ranges) | 87.9 % | 10.2 % | 1.9 % | 7.0 % | 44 / 44 |
+| RTIGER | 86.8 % | 9.1 % | 4.1 % | 8.7 % | 16 / 44 |
+| bbnil BC2S2 | 88.3 % | 8.1 % | 3.6 % | 7.6 % | 44 / 44 |
+| BC2S2 expected | 84.4 % | 6.25 % | 9.4 % | 12.5 % | |
+| BC2S3 expected | 85.9 % | 3.1 % | 10.9 % | 12.5 % | |
+
+**Zx.0540_P3** (40 lines, chr10; RTIGER and bbnil on 39 lines, without PN6_SID484)
+
+| | B73 | HET | TEO | TEO allele fraction | lines with TEO calls |
+|---|---|---|---|---|---|
+| PHG (share of called ranges) | 86.4 % | 11.2 % | 2.4 % | 8.0 % | 39 / 40 |
+| RTIGER | 84.9 % | 8.5 % | 6.6 % | 10.8 % | 20 / 39 |
+| bbnil BC2S2 | 85.8 % | 8.8 % | 5.4 % | 9.8 % | 39 / 39 |
+| BC2S2 expected | 84.4 % | 6.25 % | 9.4 % | 12.5 % | |
+| BC2S3 expected | 85.9 % | 3.1 % | 10.9 % | 12.5 % | |
+
+RTIGER and bbnil shares are of chr10 bp (bbnil segments cover 98.8–98.9 % of chr10 × lines); PHG shares are of called ranges. RTIGER has
+no generation prior (§4.3); bbnil uses the BC2S2 prior.
+
+### 3.5 B73 check
+
+| B73 check PN10_SID893 (0.57x) | Zx.0570_P2 graph | Zx.0540_P3 graph |
+|---|---|---|
+| RTIGER | all B73 (1 segment) | all B73 (1 segment) |
+| bbnil BC2S2 | 100.0 % B73 (HET / TEO pieces < 0.05 %) | 100.0 % B73 |
+| PHG | HET in 45 of 6,881 called ranges (0.7 %); no-call 15 % | HET in 56 of 6,875 (0.8 %); no-call 15 % |
+
+PHG's HET ranges on the check fall at the same positions as the recurring HET spikes in the lines that RTIGER calls all B73.
+
+### 3.6 Paintings
+
+![Zx.0570_P2, chr10, 44 lines + B73 check (top): RTIGER / bbnil BC2S2 / PHG; label = NIL id + skim coverage (local copy).](../../agent/paintings/Zx.0570_P2_chr10_RTIGER_bbnil_PHG.png)
+
+![Zx.0540_P3, chr10, 40 lines + B73 check (top; PN6_SID484 = Zx05403352, PHG only): RTIGER / bbnil BC2S2 / PHG; label = NIL id + skim coverage (local copy).](../../agent/paintings/Zx.0540_P3_chr10_RTIGER_bbnil_PHG.png)
+
+What the paintings show:
+
+- The callers agree on which lines carry introgressions and where.
+- bbnil follows RTIGER's introgressions but, like PHG, breaks them into short HET / B73 and TEO / HET pieces, and calls some HET or TEO
+  in every line.
+- Inside RTIGER's TEO segments (e.g. Zx05702132, Zx05702411, Zx05403561) PHG alternates TEO, HET and B73; inside RTIGER's HET segments
+  (e.g. Zx05702242, Zx05702131) PHG alternates HET and B73.
+- In lines RTIGER calls all B73, PHG shows short HET (occasionally TEO) spikes at the same positions across many lines — specific ranges,
+  not lines. The B73 check shows the same spikes (§3.5).
+- PHG counts a line as carrying TEO when a single range is called; RTIGER merges short calls at rigidity 500. That is why PHG reports TEO
+  calls in almost every line and RTIGER in about half.
+
+## 4. Problems found and fixed
+
+### 4.1 CRISP reads the BED end one base too far
+
+CRISP converts the BED start correctly (1-based `s+1`) but treats the end as inclusive in 0-based coordinates, so it also calls the base
+right after every range. Direct test: BED `chr10 105269 105270` (base 105,270 only) → CRISP reported 105,271. Across the 8,095 ranges,
+Zx.0570_P2's raw output had 29 records at range end + 1, near the density inside the ranges (36 at the first base), and 2 before the
+start. Source: `variantcalls.c` tests `k >= start && k <= end` with the raw BED values and a 0-based `k`.
+
+- **Fix** (`dc95eea`): right after CRISP, keep only records inside the true ranges (`bcftools view -T <bed>`), before veto, step 4,
+  union and RTIGER.
+- **Not fixed:** `PHG/qcset/variant_discovery.sbatch` (QC-set discovery) has the same CRISP call.
+- **Affected:** every step-4 table made before `dc95eea` and everything built on it. Both donors here were rerun.
+- Reported upstream: [vibansal/crisp#34](https://github.com/vibansal/crisp/issues/34). Recorded in `docs/DECISIONS.md` (2026-09-24).
+
+### 4.2 A union founder PHG could not use
+
+The plan specified the union founder as records only at the union sites (ALT at ALT, REF at REF, nothing at missing). PHG's `gvcf2hvcf`
+builds a founder haplotype only from the stretches that have gVCF records, so each haplotype became the recorded 1–2 bp pieces joined
+together (a 571-bp range gave ~15 bp). Only 5,179 of 8,095 ranges had a founder haplotype, and reads cannot match such sequences by
+k-mers: **zero TEO calls in all 44 Zx.0570_P2 lines** (job 949013, kept in `phg/Zx.0570_P2_records_only_949013/`).
+
+Fix (user decision): one reference block per lowcopy range, split at ALT records, no record at missing sites. Every range then has a
+full-length founder haplotype (B73 sequence with the donor's ALT alleles), and a missing site is the only base absent from it. A detour
+that built the blocks from the donor's covered stretches (`covered_blocks.sh`, not in the plan) was removed before any run.
+
+Consequence: a range without an ALT site has a founder haplotype identical to B73, and PHG reports it as no call.
+
+### 4.3 RTIGER in nilHMM takes no breeding-design prior
+
+The `rtiger` caller in nilHMM (0.3.0, and the source at `96d5c48`) has only `rigidity`, `seed`, starting emission values, `threads` and
+`postprocess`. Start probabilities and transitions are estimated from the data by EM; the number of states is fixed at 3. `design` is
+accepted by `call_states()` but silently dropped for `rtiger`. So RTIGER here has no generation prior, and a BC2S2-vs-BC2S3 comparison
+(plan step 7) cannot be run with it. Filed as [sawers-rellan-labs/nilhmm#27](https://github.com/sawers-rellan-labs/nilhmm/issues/27):
+rtiger should take `design`, and until then should not accept it silently. The RTIGER scripts no longer pass `design` (`abc26df`).
+
+### 4.4 Smaller issues
+
+- **PN6_SID484** covers 253 markers; RTIGER requires 2 × rigidity = 1,000 per line and refuses the whole run. It was dropped from RTIGER
+  and keeps its PHG lane.
+- **Demux QC overwrite:** every pool run overwrites `results/demux_qc/demux_qc.tsv`; the donors' rows were saved to
+  `bench_*/demux_qc_*_20260924.tsv` before the next run.
+- **Slurm controller outage** 2026-09-23 20:40–20:53 (`scontrol ping` not responding; `sacct` still answered from the accounting database).
+
+## 5. Caveats
+
+- PHG shares are over called ranges (24–30 % no-call excluded); RTIGER shares are over bp. The paintings fill PHG no-call and
+  shared-haplotype ranges with the flanking ancestry (as in `paint_callers_introg.R`), which hides where PHG made no call.
+- The shortfall against the expectation cannot come from dilution across families: each donor's lines descend from one BC1 plant and
+  carry the same donor haplotype, so a site informative for the donor is informative in every line. Within a family the shortfall is
+  unexpected, unless PHG over-calls B73 (reference bias). RTIGER is also below the expectation, though closer.
+- The founder's missing sites (9,079 and 11,819) are holes in the founder haplotype. Whether PHG's B73 and HET calls inside RTIGER's
+  introgressions sit on ranges with more holes has not been tested.
+- chr10 only; one run per donor; the 1.2x data does not exist for these donors.
 
 ## 6. Open questions
 
