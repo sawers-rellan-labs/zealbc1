@@ -30,7 +30,7 @@ results as of 2026-09-24. Earlier workbooks (01–05) cover the design and the d
   no breeding-design prior (sawers-rellan-labs/nilhmm#27), so RTIGER here has no generation prior.
 :::
 
-## 1. Teosinte NIL introgression pipeline background
+## 1. Background
 
 TeoNAM ([Chen et al. 2019, *Genetics* 213:1065](https://academic.oup.com/genetics/article/213/3/1065/5930618)): five teosinte × W22 families,
 1,257 BC1S4 RILs, genotyped by GBS as individual diploid plants.
