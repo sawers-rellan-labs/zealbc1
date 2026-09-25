@@ -12,6 +12,7 @@ channels:
 dependencies:
   - r-base=4.4
   - r-data.table
+  - r-r.utils       # fread()/fwrite() on .gz files
   - r-optparse
   - r-ggplot2
   - r-jsonlite
